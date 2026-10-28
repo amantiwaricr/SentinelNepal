@@ -154,8 +154,12 @@ of feature handling** (AGENTS.md rule: no duplicated business logic).
 
 ## 6. Technology stack
 
-Exact versions are pinned in Phase 1 after an install-and-test check; the table states the
-intended major lines. Everything is free and open source; no cloud service is required.
+Exact versions are pinned in `backend/requirements*.txt` and `frontend/package.json` (+ lock
+file) after an install-and-test check in Phase 1. Everything is free and open source; no cloud
+service is required. Phase 1 pins: Python 3.13 image (3.12+ supported), FastAPI 0.162,
+SQLAlchemy 2.1, Alembic 1.20, Pydantic 2.14, psycopg 3.3; React 19, TypeScript 6.0 (the newest
+version `typescript-eslint` supports), Vite 8, Tailwind 4, React Router 7 (maintained line with a
+well-documented API; v8 deferred), Vitest 5. Recharts is added in Phase 4 when charts are built.
 
 | Area | Choice | Notes |
 |---|---|---|

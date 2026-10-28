@@ -1,0 +1,43 @@
+# --- Secrets: never commit real configuration ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# --- Datasets, model artifacts, traffic captures: never commit ---
+ml/data/*
+!ml/data/README.md
+ml/artifacts/*
+!ml/artifacts/README.md
+*.pcap
+*.pcapng
+*.cap
+zeek-logs/
+collector/logs/
+
+# --- Runtime data ---
+backend/uploads/
+*.log
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

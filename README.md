@@ -3,13 +3,14 @@
 Machine-learning-based network intrusion detection and incident response system —
 Tribhuvan University BSc CSIT final-year project.
 
-> **Status:** Phase 0 (planning). No application code exists yet. Setup instructions will be
-> added in Phase 1.
-
 SentinelNepal scores network flow records with a model trained on the public UNSW-NB15
 dataset, raises alerts for analyst review, suggests defensive measures, and lets an
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
+
+> **Status:** Phase 1 (repository foundation) complete. The backend, database migrations,
+> health checks, and dashboard shell work; detection, alerts, and response features arrive in
+> later phases. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
 
@@ -17,4 +18,181 @@ nftables. Model output is treated as evidence for investigation, never as proof 
 - [Implementation plan](docs/implementation-plan.md)
 - [Threat model](docs/threat-model.md)
 - [Project status](docs/PROJECT_STATUS.md)
-- [Contributor and agent rules](AGENTS.md)
+- [Contributor and agent rules](AGENTS.md) — read before contributing
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `backend/` | FastAPI API, SQLAlchemy models, Alembic migrations, pytest suite |
+| `frontend/` | React + TypeScript + Vite + Tailwind dashboard, Vitest suite |
+| `ml/` | `sentinel_ml` package: preprocessing, training, evaluation, inference (Phase 2) |
+| `collector/` | Zeek log collector and CSV replay (Phase 6) |
+| `firewall/` | Restricted nftables helper (Phase 7) |
+| `docs/` | Design, plan, threat model, status |
+
+## Prerequisites
+
+| Tool | Version | Needed for |
+|---|---|---|
+| Git | any recent | everything |
+| Docker Engine + Compose v2 | Docker 24+ | Option A, and the database in Option B |
+| Python | 3.12 or newer (CI and the image use 3.13) | Option B, running backend tests |
+| Node.js | 22 LTS | Option B, running frontend tests |
+
+Windows users: use WSL 2 (Ubuntu) for the commands below.
+
+## Option A — run everything with Docker Compose
+
+```bash
+git clone https://github.com/amantiwaricr/SentinelNepal.git
+cd SentinelNepal
+cp .env.example .env
+```
+
+Edit `.env` and replace `POSTGRES_PASSWORD=change-me` with a long random value, for example
+the output of `python3 -c "import secrets; print(secrets.token_urlsafe(24))"`. Then:
+
+```bash
+docker compose up --build
+```
+
+Compose starts four services in order: `db` (PostgreSQL 16) → `migrate` (runs
+`alembic upgrade head` once, then exits) → `backend` (FastAPI on port 8000) → `frontend`
+(Vite dev server on port 5173). All ports are published on `127.0.0.1` only.
+
+| URL | What |
+|---|---|
+| http://localhost:5173 | Dashboard (System Health page shows live backend status) |
+| http://localhost:8000/api/docs | Interactive API documentation (disabled when `ENVIRONMENT=production`) |
+| http://localhost:8000/api/v1/health/live | Liveness: the process is up |
+| http://localhost:8000/api/v1/health/ready | Readiness: database reachable and schema at the latest migration (503 otherwise) |
+
+Stop with `Ctrl+C`, or `docker compose down`. `docker compose down -v` also **deletes the
+database volume**.
+
+## Option B — native development (faster edit/reload)
+
+Run only PostgreSQL in Docker and the backend/frontend directly on your machine.
+
+```bash
+cp .env.example .env              # then set POSTGRES_PASSWORD as above
+docker compose up -d db           # PostgreSQL on 127.0.0.1:5433
+```
+
+Backend (in one terminal):
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate         # Windows/WSL: same command inside WSL
+pip install -r requirements-dev.txt
+alembic upgrade head              # creates/updates the schema
+uvicorn app.main:create_app --factory --reload --port 8000
+```
+
+The backend reads the repository-root `.env` (`POSTGRES_HOST=localhost`,
+`POSTGRES_PORT=5433`). Real environment variables override values in `.env`.
+
+Frontend (in another terminal):
+
+```bash
+cd frontend
+npm ci
+npm run dev                       # http://localhost:5173, proxies /api to localhost:8000
+```
+
+Set `API_PROXY_TARGET` if the backend runs elsewhere. `frontend/.env.example` documents
+`VITE_API_BASE_URL` (default `/api/v1`).
+
+## Running the tests
+
+### Backend
+
+```bash
+cd backend
+source .venv/bin/activate
+ruff format --check . && ruff check .     # formatting and lint
+mypy                                      # strict type check of app/
+pytest                                    # unit tests; DB tests are skipped without a test DB
+```
+
+The PostgreSQL integration tests (migrations, readiness, constraints) need a **dedicated test
+database**. They drop and recreate its schema, so they refuse to run unless the database name
+ends in `_test`:
+
+```bash
+docker compose exec db createdb -U sentinel sentinelnepal_test
+TEST_DATABASE_URL=postgresql+psycopg://sentinel:<your-password>@localhost:5433/sentinelnepal_test pytest
+```
+
+To confirm the ORM models and migrations agree: `alembic check`.
+
+### Frontend
+
+```bash
+cd frontend
+npm run format:check
+npm run lint          # includes bans on dangerouslySetInnerHTML and localStorage
+npm run typecheck
+npm test
+npm run build
+```
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs all of the above on every push and pull request, with the
+integration tests against a PostgreSQL service container, plus `docker compose config`.
+
+## Database migrations
+
+```bash
+cd backend
+alembic upgrade head                                   # apply all migrations
+alembic downgrade -1                                   # undo the latest migration
+alembic revision --autogenerate -m "describe change"   # after editing app/models (review the file!)
+```
+
+## Configuration
+
+All settings come from environment variables (see `.env.example`). Never commit `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ENVIRONMENT` | `development` | `development`, `test`, or `production` (disables API docs) |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | `localhost` / `5432` | Database location (Compose overrides to `db:5432`) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | — | Database credentials |
+| `DATABASE_URL` | unset | Full SQLAlchemy URL; overrides the `POSTGRES_*` parts |
+| `POSTGRES_HOST_PORT` | `5433` | Host port Compose publishes PostgreSQL on |
+| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed browser origins (`*` is rejected) |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `LOG_FORMAT` | `json` | `json` or `text` |
+| `TEST_DATABASE_URL` | unset | Enables PostgreSQL integration tests (name must end in `_test`) |
+
+## API conventions
+
+- Base path `/api/v1`. Every response carries an `X-Request-ID` header.
+- Errors always use one envelope, so the frontend can handle them uniformly:
+
+  ```json
+  {"error": {"code": "not_found", "message": "Not Found", "details": null, "request_id": "…"}}
+  ```
+
+  Validation errors list the failing fields but never echo submitted values. Unexpected
+  errors return a generic 500 with the request id; details go to the server log only.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `/health/ready` returns 503 with migrations `pending` | Run `alembic upgrade head` (Compose does this via the `migrate` service) |
+| `/health/ready` returns 503 with database `unavailable` | Check that `db` is running and `.env` credentials match; the API recovers automatically once the DB is back |
+| `address already in use` for 5173, 8000, or 5433 | Stop the other process, or change the host port in `docker-compose.yml` / `POSTGRES_HOST_PORT` |
+| `docker compose` says `Set POSTGRES_PASSWORD in .env` | Create `.env` from `.env.example` |
+| `pip`/`npm` SSL errors during `docker build` on a network with TLS inspection | The build container does not trust the network's proxy CA; build on a network without TLS interception or ask the network administrator for the CA |
+
+## Safety
+
+This project is for an isolated, authorised laboratory only. Do not run live collection on
+networks you are not authorised to monitor, and never run firewall tests on your primary
+machine or a shared network. See [docs/threat-model.md](docs/threat-model.md).

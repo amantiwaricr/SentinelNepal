@@ -80,12 +80,12 @@ temporary, reversible nftables blocks applied by a narrowly privileged helper. D
 * Frontend: Vitest + React Testing Library for components and key workflows.
 * Do not skip, weaken, or delete tests to get a green build. Fix the cause or document the
   failure in `docs/PROJECT_STATUS.md`.
-* Commands (to be finalised in Phase 1):
-  * `cd backend && pytest`
-  * `cd ml && pytest`
-  * `cd collector && pytest`
-  * `cd firewall && pytest`
-  * `cd frontend && npm test`
+* Commands (run before every push; CI runs the same):
+  * Backend: `cd backend && ruff format --check . && ruff check . && mypy && pytest`
+    (set `TEST_DATABASE_URL` to a database whose name ends in `_test` to include the
+    PostgreSQL integration tests; after model changes also run `alembic check`)
+  * Frontend: `cd frontend && npm run format:check && npm run lint && npm run typecheck && npm test && npm run build`
+  * `ml/`, `collector/`, `firewall/`: `pytest` in each directory once those phases add code.
 
 ## 6. Security rules
 
