@@ -72,7 +72,7 @@ RAW_DESCRIPTION_NAMES = [
 def _write_full_records(directory: Path, with_description: bool) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / "UNSW-NB15_1.csv"
-    with path.open("w", newline="") as handle:
+    with path.open("w", newline="", encoding="utf-8") as handle:
         csv.writer(handle).writerows(full_record_rows())
     if with_description:
         pd.DataFrame(
@@ -95,11 +95,11 @@ def test_detects_both_file_families(tmp_path: Path) -> None:
 
 def test_unrecognised_and_empty_files_are_rejected(tmp_path: Path) -> None:
     odd = tmp_path / "odd.csv"
-    odd.write_text("a,b,c\n1,2,3\n")
+    odd.write_text("a,b,c\n1,2,3\n", encoding="utf-8")
     with pytest.raises(DatasetError, match="unrecognised layout"):
         detect_schema(odd)
     empty = tmp_path / "empty.csv"
-    empty.write_text("")
+    empty.write_text("", encoding="utf-8")
     with pytest.raises(DatasetError, match="empty"):
         detect_schema(empty)
 
@@ -171,3 +171,12 @@ def test_missing_file_and_directory_errors_point_to_instructions(tmp_path: Path)
         find_file(tmp_path, TRAIN_FILE)
     with pytest.raises(DatasetError, match="not found"):
         find_file(tmp_path / "missing", TRAIN_FILE)
+
+
+def test_unlabelled_file_with_header_is_recognised(tmp_path: Path) -> None:
+    write_synthetic_partitioned(tmp_path, train_rows=60, test_rows=60)
+    path = tmp_path / "upload.csv"
+    pd.read_csv(tmp_path / TRAIN_FILE).drop(columns=["label", "attack_cat"]).to_csv(
+        path, index=False
+    )
+    assert detect_schema(path) == "unsw_partitioned"

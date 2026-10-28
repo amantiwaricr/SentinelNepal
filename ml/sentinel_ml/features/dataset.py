@@ -92,9 +92,9 @@ def _first_line(path: Path) -> list[str]:
 def detect_schema(path: Path) -> SchemaKind:
     """Partitioned files have a header row; full-record files have none and 49 columns."""
     first = [normalize_column_name(cell) for cell in _first_line(path)]
-    # Header detection only needs the label columns; clean_frame then reports any missing
-    # feature columns by name.
-    if CATEGORY_COLUMN in first or LABEL_COLUMN in first:
+    # A header row is recognised by label columns or core feature names (uploaded files may
+    # have no labels); clean_frame then reports any missing feature columns by name.
+    if CATEGORY_COLUMN in first or LABEL_COLUMN in first or {"dur", "proto"} <= set(first):
         return "unsw_partitioned"
     if len(first) == len(FULL_RECORD_COLUMNS):
         return "unsw_full"

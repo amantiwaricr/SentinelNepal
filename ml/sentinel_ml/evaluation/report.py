@@ -217,7 +217,7 @@ def render_evaluation_markdown(payload: dict[str, Any]) -> str:
         f"| Single record, p95 | {latency['single_record_p95_ms']:.2f} ms |",
         f"| Batch of {latency['batch_size']}, median ({latency['batch_repeats']} runs) | "
         f"{latency['batch_median_ms']:.1f} ms |",
-        f"| Batch per-record | {latency['batch_per_record_us']:.1f} µs |",
+        f"| Batch per-record | {latency['batch_per_record_us']:.1f} us |",
         f"| Batch throughput | {latency['batch_throughput_records_per_s']:.0f} records/s |",
         "",
         "## Environment",

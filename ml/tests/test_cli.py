@@ -19,7 +19,7 @@ def test_feature_table_lists_every_feature() -> None:
 def test_feature_mapping_doc_matches_code() -> None:
     # docs/feature-mapping.md embeds the generated table; regenerate it with
     # `sentinel-ml feature-table` whenever schema.LIVE_FEATURE_MAP changes.
-    text = DOC.read_text()
+    text = DOC.read_text(encoding="utf-8")
     embedded = text.split(BEGIN, 1)[1].split(END, 1)[0].strip()
     assert embedded == feature_table_markdown().strip()
 
@@ -32,7 +32,7 @@ def test_cli_profile_train_evaluate_on_synthetic_data(
     assert (
         main(["profile", "--data-dir", str(synthetic_data_dir), "--reports-dir", str(reports)]) == 0
     )
-    assert "SYNTHETIC" in (reports / "data_profile.md").read_text()
+    assert "SYNTHETIC" in (reports / "data_profile.md").read_text(encoding="utf-8")
 
     assert (
         main(

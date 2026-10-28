@@ -11,7 +11,7 @@ from typing import Any
 
 import pandas as pd
 
-from sentinel_ml.artifacts import ArtifactError, load_manifest, load_pipeline
+from sentinel_ml.artifacts import ArtifactError, ModelManifest, load_manifest, load_pipeline
 from sentinel_ml.environment import environment_info, git_commit
 from sentinel_ml.evaluation.metrics import (
     classification_metrics,
@@ -31,6 +31,18 @@ def _row_keys(dataset: LoadedDataset, features: list[str]) -> pd.Series:
     return pd.util.hash_pandas_object(frame, index=False)
 
 
+def load_training_file(manifest: ModelManifest, data_dir: Path) -> LoadedDataset:
+    """Load the training file, refusing it if it is not the exact file the model saw."""
+    train = load_files([find_file(data_dir, TRAIN_FILE)], data_dir=data_dir)
+    trained_on = {s["name"]: s["sha256"] for s in manifest.training_sources}
+    for source in train.sources:
+        if trained_on.get(source.name) != source.sha256:
+            raise ArtifactError(
+                f"{source.name} in {data_dir} differs from the file this model was trained on"
+            )
+    return train
+
+
 def evaluate_model(
     artifact_dir: Path,
     data_dir: Path,
@@ -46,13 +58,7 @@ def evaluate_model(
     pipeline = configure_for_inference(load_pipeline(artifact_dir, manifest.model_sha256))
 
     logger.info("Loading training file (to verify it and measure train/test overlap)")
-    train = load_files([find_file(data_dir, TRAIN_FILE)], data_dir=data_dir)
-    trained_on = {s["name"]: s["sha256"] for s in manifest.training_sources}
-    for source in train.sources:
-        if trained_on.get(source.name) != source.sha256:
-            raise ArtifactError(
-                f"{source.name} in {data_dir} differs from the file this model was trained on"
-            )
+    train = load_training_file(manifest, data_dir)
 
     logger.info("Loading testing file")
     test = load_files([find_file(data_dir, TEST_FILE)], data_dir=data_dir)
@@ -104,10 +110,12 @@ def evaluate_model(
     logger.info("Writing reports")
     report_dir = reports_dir / artifact_dir.name
     report_dir.mkdir(parents=True, exist_ok=True)
-    (report_dir / "evaluation.json").write_text(json.dumps(payload, indent=2) + "\n")
-    (report_dir / "evaluation.md").write_text(render_evaluation_markdown(payload))
+    (report_dir / "evaluation.json").write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+    (report_dir / "evaluation.md").write_text(render_evaluation_markdown(payload), encoding="utf-8")
     confusion = payload["all"]["confusion_matrix"]
-    with (report_dir / "confusion_matrix.csv").open("w", newline="") as handle:
+    with (report_dir / "confusion_matrix.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(["true\\predicted", *confusion["labels"]])
         for label, row in zip(confusion["labels"], confusion["matrix"], strict=True):

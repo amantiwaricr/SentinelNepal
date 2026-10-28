@@ -1,4 +1,4 @@
-# Test-set evaluation — random_forest-full_no_ttl 20261028T143723Z
+# Test-set evaluation â€” random_forest-full_no_ttl 20261028T143723Z
 
 - Data origin: **unsw-nb15**
 - Feature profile: `full_no_ttl`
@@ -7,7 +7,7 @@
 
 ## Test data
 
-- `UNSW_NB15_testing-set.csv` — 15380800 bytes, SHA-256 `734fe6642edf758f7c94d7d9149426b49d202fe8e7bf0bef47392489c3c0a559`
+- `UNSW_NB15_testing-set.csv` â€” 15380800 bytes, SHA-256 `734fe6642edf758f7c94d7d9149426b49d202fe8e7bf0bef47392489c3c0a559`
 
 - Rows read: 82332; rejected by validation: 0
 - Rejection reasons: `none`
@@ -86,7 +86,7 @@ Wall-clock time of `predict_proba` on this machine (see Environment), single pro
 | Single record, median (200 calls) | 208.91 ms |
 | Single record, p95 | 685.01 ms |
 | Batch of 1000, median (5 runs) | 539.0 ms |
-| Batch per-record | 539.0 µs |
+| Batch per-record | 539.0 Âµs |
 | Batch throughput | 1855 records/s |
 
 ## Environment

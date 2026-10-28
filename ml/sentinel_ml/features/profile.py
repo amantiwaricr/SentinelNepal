@@ -202,7 +202,9 @@ def render_profile_markdown(profile: dict[str, Any]) -> str:
 def write_profile(data_dir: Path, reports_dir: Path) -> Path:
     profile = profile_dataset(data_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    (reports_dir / "data_profile.json").write_text(json.dumps(profile, indent=2) + "\n")
+    (reports_dir / "data_profile.json").write_text(
+        json.dumps(profile, indent=2) + "\n", encoding="utf-8"
+    )
     target = reports_dir / "data_profile.md"
-    target.write_text(render_profile_markdown(profile))
+    target.write_text(render_profile_markdown(profile), encoding="utf-8")
     return target

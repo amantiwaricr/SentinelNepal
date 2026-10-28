@@ -53,6 +53,14 @@ def main(argv: list[str] | None = None) -> int:
     p_eval.add_argument("--data-dir", type=Path, default=DEFAULT_DATA)
     p_eval.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS)
 
+    p_threshold = sub.add_parser(
+        "threshold", help="Choose an alert threshold on the validation split (not the test file)"
+    )
+    p_threshold.add_argument("artifact_dir", type=Path)
+    p_threshold.add_argument("--target-fpr", type=float, default=0.05)
+    p_threshold.add_argument("--data-dir", type=Path, default=DEFAULT_DATA)
+    p_threshold.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS)
+
     sub.add_parser("feature-table", help="Print the dataset-to-Zeek feature mapping table")
 
     args = parser.parse_args(argv)
@@ -85,6 +93,13 @@ def main(argv: list[str] | None = None) -> int:
 
         report_dir = evaluate_model(args.artifact_dir, args.data_dir, args.reports_dir)
         print(f"Report: {report_dir / 'evaluation.md'}")
+    elif args.command == "threshold":
+        from sentinel_ml.evaluation.threshold import select_threshold
+
+        report_dir = select_threshold(
+            args.artifact_dir, args.data_dir, args.reports_dir, target_fpr=args.target_fpr
+        )
+        print(f"Report: {report_dir / 'threshold.md'}")
     else:
         sys.stdout.write(feature_table_markdown())
     return 0

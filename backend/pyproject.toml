@@ -11,7 +11,11 @@ target-version = "py312"
 extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF"]
+# Preview mode only for rules selected by exact code: PLW1514 (unspecified file encoding),
+# which keeps reports readable as UTF-8 on Windows, where the default encoding differs.
+preview = true
+explicit-preview-rules = true
+select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF", "PLW1514"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]

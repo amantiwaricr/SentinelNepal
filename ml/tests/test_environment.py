@@ -19,7 +19,7 @@ def repo(tmp_path: Path) -> Path:
     _git(tmp_path, "init", "-q")
     _git(tmp_path, "config", "user.email", "test@example.invalid")
     _git(tmp_path, "config", "user.name", "Test")
-    (tmp_path / "code.py").write_text("x = 1\n")
+    (tmp_path / "code.py").write_text("x = 1\n", encoding="utf-8")
     _git(tmp_path, "add", "code.py")
     _git(tmp_path, "commit", "-q", "-m", "init")
     return tmp_path
@@ -31,13 +31,13 @@ def test_clean_checkout_reports_plain_commit(repo: Path) -> None:
 
 
 def test_untracked_files_do_not_mark_the_commit_dirty(repo: Path) -> None:
-    (repo / "data_profile.md").write_text("generated report\n")
+    (repo / "data_profile.md").write_text("generated report\n", encoding="utf-8")
     commit = git_commit(repo)
     assert commit is not None and not commit.endswith("+dirty")
 
 
 def test_modified_tracked_file_marks_the_commit_dirty(repo: Path) -> None:
-    (repo / "code.py").write_text("x = 2\n")
+    (repo / "code.py").write_text("x = 2\n", encoding="utf-8")
     commit = git_commit(repo)
     assert commit is not None and commit.endswith("+dirty")
 

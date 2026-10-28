@@ -46,6 +46,17 @@ sentinel-ml train --profile live_compatible      # 4. features obtainable from Z
 sentinel-ml evaluate artifacts/<artifact-dir>    # 5. once per trained artifact
 ```
 
+Then, for each model the backend will use, choose its alert threshold on the **validation**
+split (never the testing file) and measure single-threaded latency:
+
+```bash
+sentinel-ml threshold artifacts/<artifact-dir> --target-fpr 0.05
+```
+
+This writes `reports/<artifact-dir>/threshold.md/json`. The backend reads `threshold.json`
+when the model is registered; a record raises an alert only if its attack score
+(`1 - score(Normal)`, uncalibrated) reaches the threshold.
+
 Each `train` prints the artifact directory and its SHA-256. Reports go to
 `ml/reports/<artifact-dir>/` (`training.md/json`, `evaluation.md/json`,
 `confusion_matrix.csv`) and `ml/reports/data_profile.md`. Commit the reports; artifacts stay
@@ -127,6 +138,8 @@ for r in batch.rejected:
   batches an API serves). Evaluation uses the same setting, so its latency reflects this.
 - Malformed records are rejected individually with reasons; a missing *required column*
   in a DataFrame raises `SchemaError`. At most 10 000 records per call.
+- Each `Prediction` also carries `attack_score`, `top_attack_category`, the validated
+  `features` (evidence) and `metadata` (IPs, ports, timestamps when the input had them).
 - `global_feature_importance()` shows what the model relies on overall. It does not explain
   an individual prediction and does not imply causation.
 

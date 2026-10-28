@@ -39,6 +39,11 @@ class Prediction:
     class_scores: dict[str, float]
     imputed_features: list[str]  # nullable features that were blank and filled by the model
     unknown_categories: dict[str, str]  # categorical values never seen in training
+    # 1 - score(Normal): how strongly the model leans towards "some attack". Uncalibrated.
+    attack_score: float
+    top_attack_category: str  # highest-scoring non-Normal class
+    features: dict[str, float | str | None]  # validated model inputs (evidence)
+    metadata: dict[str, object]  # src/dst IP and port, timestamps when the input had them
 
 
 @dataclass(frozen=True)
@@ -178,17 +183,21 @@ class Predictor:
         for local, reasons in cleaned.rejected.items():
             batch.rejected.append(RejectedRecord(positions[local], reasons))
         valid_positions = [p for i, p in enumerate(positions) if i not in cleaned.rejected]
+        # clean_frame returns only valid rows, so cleaned.metadata rows align with them.
         if not valid_positions:
             return
 
         features = cleaned.features[self.features]
         probabilities = self._pipeline.predict_proba(features)
         nullable = [f for f in self.features if f in NULLABLE_FEATURES]
+        normal_index = self._classes.index(NORMAL) if NORMAL in self._classes else None
+        attack_indices = [i for i, c in enumerate(self._classes) if c != NORMAL]
         for row, position in enumerate(valid_positions):
             scores = probabilities[row]
             best = int(np.argmax(scores))
             category = self._classes[best]
             values = features.iloc[row]
+            top_attack = max(attack_indices, key=lambda i: scores[i])
             batch.predictions.append(
                 Prediction(
                     index=position,
@@ -202,5 +211,29 @@ class Predictor:
                         for name, known in self._known_categories.items()
                         if str(values[name]) not in known
                     },
+                    attack_score=(
+                        1.0 - float(scores[normal_index]) if normal_index is not None else 1.0
+                    ),
+                    top_attack_category=self._classes[top_attack],
+                    features={name: _plain(values[name]) for name in self.features},
+                    metadata={
+                        str(name): _plain(value)
+                        for name, value in cleaned.metadata.iloc[row].items()
+                    },
                 )
             )
+
+
+def _plain(value: object) -> float | str | None:
+    """Convert pandas/numpy scalars to JSON-friendly Python values (NA -> None)."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):  # type: ignore[call-overload]
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, int | float | str):
+        return value
+    return str(value)

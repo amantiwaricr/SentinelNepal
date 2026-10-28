@@ -36,9 +36,9 @@ def test_pipeline_inputs_match_feature_definitions(trained: TrainingResult) -> N
 
 
 def test_training_reports_are_written_and_marked_synthetic(trained: TrainingResult) -> None:
-    markdown = (trained.report_dir / "training.md").read_text()
+    markdown = (trained.report_dir / "training.md").read_text(encoding="utf-8")
     assert "SYNTHETIC DATA" in markdown
-    payload = json.loads((trained.report_dir / "training.json").read_text())
+    payload = json.loads((trained.report_dir / "training.json").read_text(encoding="utf-8"))
     assert payload["data_origin"] == "synthetic"
 
 
@@ -136,4 +136,4 @@ def test_fit_warnings_are_recorded_not_hidden(
     result = train_model(data, tmp_path / "a", tmp_path / "r", candidates=CANDIDATES[:1], n_jobs=1)
     warnings = result.manifest.selection["candidates"][0]["warnings"]
     assert any(w.startswith("ConvergenceWarning") for w in warnings)
-    assert "ConvergenceWarning" in (result.report_dir / "training.md").read_text()
+    assert "ConvergenceWarning" in (result.report_dir / "training.md").read_text(encoding="utf-8")

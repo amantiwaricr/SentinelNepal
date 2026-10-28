@@ -69,7 +69,9 @@ def write_synthetic_partitioned(
     data_dir: Path, train_rows: int = 1500, test_rows: int = 600, seed: int = 7
 ) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
-    (data_dir / SYNTHETIC_MARKER_FILE).write_text("Synthetic test data. Not UNSW-NB15.\n")
+    (data_dir / SYNTHETIC_MARKER_FILE).write_text(
+        "Synthetic test data. Not UNSW-NB15.\n", encoding="utf-8"
+    )
     make_partitioned_frame(train_rows, seed).to_csv(data_dir / TRAIN_FILE, index=False)
     test = make_partitioned_frame(test_rows, seed + 1)
     # Copy a few training rows into the test file to exercise the overlap report.

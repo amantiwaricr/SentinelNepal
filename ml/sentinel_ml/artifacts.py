@@ -66,14 +66,16 @@ def save_artifact(pipeline: Pipeline, manifest: ModelManifest, artifacts_dir: Pa
     model_path = target / MODEL_FILE
     joblib.dump(pipeline, model_path)
     manifest.model_sha256 = sha256_file(model_path)
-    (target / MANIFEST_FILE).write_text(json.dumps(asdict(manifest), indent=2) + "\n")
+    (target / MANIFEST_FILE).write_text(
+        json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8"
+    )
     return target
 
 
 def load_manifest(artifact_dir: Path) -> ModelManifest:
     path = artifact_dir / MANIFEST_FILE
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         return ModelManifest(**data)
     except FileNotFoundError:
         raise ArtifactError(f"No {MANIFEST_FILE} in {artifact_dir}") from None

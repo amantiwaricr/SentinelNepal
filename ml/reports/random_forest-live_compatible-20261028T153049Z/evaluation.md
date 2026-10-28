@@ -1,4 +1,4 @@
-# Test-set evaluation — random_forest-live_compatible 20261028T153049Z
+# Test-set evaluation â€” random_forest-live_compatible 20261028T153049Z
 
 - Data origin: **unsw-nb15**
 - Feature profile: `live_compatible`
@@ -7,7 +7,7 @@
 
 ## Test data
 
-- `UNSW_NB15_testing-set.csv` — 15380800 bytes, SHA-256 `734fe6642edf758f7c94d7d9149426b49d202fe8e7bf0bef47392489c3c0a559`
+- `UNSW_NB15_testing-set.csv` â€” 15380800 bytes, SHA-256 `734fe6642edf758f7c94d7d9149426b49d202fe8e7bf0bef47392489c3c0a559`
 
 - Rows read: 82332; rejected by validation: 0
 - Rejection reasons: `none`
@@ -86,7 +86,7 @@ Wall-clock time of `predict_proba` on this machine (see Environment), single pro
 | Single record, median (200 calls) | 96.73 ms |
 | Single record, p95 | 127.27 ms |
 | Batch of 1000, median (5 runs) | 157.0 ms |
-| Batch per-record | 157.0 µs |
+| Batch per-record | 157.0 Âµs |
 | Batch throughput | 6370 records/s |
 
 ## Environment

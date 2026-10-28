@@ -147,9 +147,9 @@ def test_feature_schema_version_mismatch_is_refused(
 ) -> None:
     copy = tmp_path / "artifact"
     shutil.copytree(trained.artifact_dir, copy)
-    manifest = json.loads((copy / "manifest.json").read_text())
+    manifest = json.loads((copy / "manifest.json").read_text(encoding="utf-8"))
     manifest["feature_schema_version"] = 999
-    (copy / "manifest.json").write_text(json.dumps(manifest))
+    (copy / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ArtifactError, match="schema"):
         Predictor.load(copy, trained.manifest.model_sha256)
 
@@ -157,7 +157,7 @@ def test_feature_schema_version_mismatch_is_refused(
 def test_missing_or_malformed_manifest_is_refused(trained: TrainingResult, tmp_path: Path) -> None:
     copy = tmp_path / "artifact"
     shutil.copytree(trained.artifact_dir, copy)
-    (copy / "manifest.json").write_text("{not json")
+    (copy / "manifest.json").write_text("{not json", encoding="utf-8")
     with pytest.raises(ArtifactError, match="Malformed"):
         Predictor.load(copy, trained.manifest.model_sha256)
     (copy / "manifest.json").unlink()
@@ -170,9 +170,9 @@ def test_artifact_from_another_scikit_learn_version_is_refused(
 ) -> None:
     copy = tmp_path / "artifact"
     shutil.copytree(trained.artifact_dir, copy)
-    manifest = json.loads((copy / "manifest.json").read_text())
+    manifest = json.loads((copy / "manifest.json").read_text(encoding="utf-8"))
     manifest["environment"]["scikit-learn"] = "0.24.2"
-    (copy / "manifest.json").write_text(json.dumps(manifest))
+    (copy / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ArtifactError, match="Retrain"):
         Predictor.load(copy, trained.manifest.model_sha256)
 
@@ -201,3 +201,28 @@ def test_random_forest_predicts_single_threaded_with_identical_results(tmp_path:
     expected = threaded.predict_proba(cleaned)
     for prediction, row in zip(batch.predictions, expected, strict=True):
         assert list(prediction.class_scores.values()) == pytest.approx(row.tolist())
+
+
+def test_predictions_carry_attack_score_and_evidence(predictor: Predictor) -> None:
+    batch = predictor.predict_records(_records(3))
+    for prediction in batch.predictions:
+        normal = prediction.class_scores.get(NORMAL, 0.0)
+        assert math.isclose(prediction.attack_score, 1 - normal, abs_tol=1e-12)
+        assert prediction.top_attack_category != NORMAL
+        assert prediction.top_attack_category in prediction.class_scores
+        assert set(prediction.features) == set(predictor.features)
+        assert set(prediction.metadata) >= {"src_ip", "dst_ip", "src_port", "start_time"}
+
+
+def test_metadata_is_returned_for_full_record_rows(predictor: Predictor) -> None:
+    frame = (
+        make_partitioned_frame(40, seed=8)
+        .head(2)
+        .assign(srcip=["10.0.0.1", "bad"], dsport=["0x0050", "-"], stime=["1421927414", ""])
+    )
+    batch = predictor.predict_frame(frame.astype(str))
+    first, second = batch.predictions
+    assert first.metadata["src_ip"] == "10.0.0.1"
+    assert first.metadata["dst_port"] == 80
+    assert first.metadata["start_time"] == "2015-01-22T11:50:14+00:00"
+    assert second.metadata["src_ip"] is None and second.metadata["dst_port"] is None

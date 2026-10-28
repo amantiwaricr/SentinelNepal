@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
@@ -22,13 +23,19 @@ from sentinel_ml.artifacts import ModelManifest, save_artifact
 from sentinel_ml.environment import environment_info, git_commit
 from sentinel_ml.evaluation.metrics import classification_metrics
 from sentinel_ml.evaluation.report import render_training_markdown
-from sentinel_ml.features.dataset import DatasetError, find_file, load_files
+from sentinel_ml.features.dataset import DatasetError, LoadedDataset, find_file, load_files
 from sentinel_ml.preprocessing.pipeline import (
     ModelKind,
     build_pipeline,
     global_feature_importance,
 )
-from sentinel_ml.schema import CLASS_LABELS, FEATURE_SCHEMA_VERSION, TRAIN_FILE, get_profile
+from sentinel_ml.schema import (
+    CLASS_LABELS,
+    FEATURE_SCHEMA_VERSION,
+    TRAIN_FILE,
+    FeatureProfile,
+    get_profile,
+)
 
 DEFAULT_SEED = 42
 
@@ -48,6 +55,39 @@ CANDIDATES = (
     CandidateSpec("random_forest", "random_forest", None),
     CandidateSpec("random_forest_balanced", "random_forest", "balanced"),
 )
+
+
+@dataclass
+class SplitData:
+    x_train: pd.DataFrame
+    x_val: pd.DataFrame
+    y_train: pd.Series
+    y_val: pd.Series
+    duplicates_removed: int
+
+
+def split_training_data(
+    dataset: LoadedDataset, profile: FeatureProfile, seed: int, validation_fraction: float
+) -> SplitData:
+    """Deduplicate and split the training file. Shared by training and threshold selection,
+    so both always see exactly the same validation rows."""
+    features = dataset.features[list(profile.features)]
+    labels = dataset.labels
+    # Exact duplicates (same features and label) would otherwise appear on both sides of the
+    # train/validation split and inflate validation scores.
+    duplicated = features.assign(_label=labels).duplicated().to_numpy()
+    features, labels = features[~duplicated], labels[~duplicated]
+
+    class_counts = labels.value_counts()
+    too_small = class_counts[class_counts < 2]
+    if not too_small.empty:
+        raise DatasetError(
+            f"Classes with fewer than 2 records cannot be split: {too_small.to_dict()}"
+        )
+    x_train, x_val, y_train, y_val = train_test_split(
+        features, labels, test_size=validation_fraction, stratify=labels, random_state=seed
+    )
+    return SplitData(x_train, x_val, y_train, y_val, int(duplicated.sum()))
 
 
 @dataclass
@@ -106,27 +146,12 @@ def train_model(
     dataset = load_files([train_path], data_dir=data_dir)
     logger.info("Read %d rows; %d rejected by validation", dataset.rows_read, dataset.rows_rejected)
 
-    features = dataset.features[list(profile.features)]
-    labels = dataset.labels
-    # Exact duplicates (same features and label) would otherwise appear on both sides of the
-    # train/validation split and inflate validation scores.
-    duplicated = features.assign(_label=labels).duplicated().to_numpy()
-    features, labels = features[~duplicated], labels[~duplicated]
-
-    class_counts = labels.value_counts()
-    too_small = class_counts[class_counts < 2]
-    if not too_small.empty:
-        raise DatasetError(
-            f"Classes with fewer than 2 records cannot be split: {too_small.to_dict()}"
-        )
-
-    x_train, x_val, y_train, y_val = train_test_split(
-        features, labels, test_size=validation_fraction, stratify=labels, random_state=seed
-    )
-
+    split = split_training_data(dataset, profile, seed, validation_fraction)
+    x_train, x_val, y_train, y_val = split.x_train, split.x_val, split.y_train, split.y_val
+    duplicates_removed = split.duplicates_removed
     logger.info(
         "Removed %d duplicate rows; %d train / %d validation rows",
-        int(duplicated.sum()),
+        duplicates_removed,
         len(x_train),
         len(x_val),
     )
@@ -189,7 +214,7 @@ def train_model(
             "rows_read": dataset.rows_read,
             "rows_rejected": dataset.rows_rejected,
             "rejection_counts": dict(dataset.rejection_counts),
-            "duplicates_removed": int(duplicated.sum()),
+            "duplicates_removed": duplicates_removed,
             "train_rows": len(x_train),
             "validation_rows": len(x_val),
             "train_class_counts": {str(k): int(v) for k, v in y_train.value_counts().items()},
@@ -211,8 +236,10 @@ def train_model(
     report_dir = reports_dir / artifact_dir.name
     report_dir.mkdir(parents=True, exist_ok=True)
     payload = _training_payload(manifest)
-    (report_dir / "training.json").write_text(json.dumps(payload, indent=2) + "\n")
-    (report_dir / "training.md").write_text(render_training_markdown(payload))
+    (report_dir / "training.json").write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+    (report_dir / "training.md").write_text(render_training_markdown(payload), encoding="utf-8")
     return TrainingResult(artifact_dir=artifact_dir, manifest=manifest, report_dir=report_dir)
 
 

@@ -43,12 +43,12 @@ def test_evaluation_writes_reports(
     report_dir = evaluate_model(
         trained.artifact_dir, synthetic_data_dir, tmp_path, latency_calls=10
     )
-    payload = json.loads((report_dir / "evaluation.json").read_text())
+    payload = json.loads((report_dir / "evaluation.json").read_text(encoding="utf-8"))
     assert payload["data_origin"] == "synthetic"
     assert payload["overlap_with_training"] == 5  # rows copied in by the synthetic generator
     assert payload["deduplicated"]["records"] == payload["all"]["records"] - 5
     assert payload["latency"]["single_record_median_ms"] > 0
-    assert "SYNTHETIC DATA" in (report_dir / "evaluation.md").read_text()
+    assert "SYNTHETIC DATA" in (report_dir / "evaluation.md").read_text(encoding="utf-8")
     matrix = pd.read_csv(report_dir / "confusion_matrix.csv", index_col=0)
     assert int(matrix.to_numpy().sum()) == payload["all"]["records"]
 

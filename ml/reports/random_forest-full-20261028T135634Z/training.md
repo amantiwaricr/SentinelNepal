@@ -1,4 +1,4 @@
-# Training report — random_forest-full 20261028T135634Z
+# Training report â€” random_forest-full 20261028T135634Z
 
 - Data origin: **unsw-nb15**
 - Feature profile: `full` (39 features)
@@ -11,7 +11,7 @@ The official testing file was **not** used for training or selection.
 
 ## Data
 
-- `UNSW_NB15_training-set.csv` — 32293018 bytes, SHA-256 `bec7dd5ec88dc2a0ccc7a07879d338395ed7421750f675fd0339e07dfe0648fa`
+- `UNSW_NB15_training-set.csv` â€” 32293018 bytes, SHA-256 `bec7dd5ec88dc2a0ccc7a07879d338395ed7421750f675fd0339e07dfe0648fa`
 
 - Rows read: 175341; rejected by validation: 0; exact duplicates removed: 67601
 - Train rows: 86192; validation rows: 21548
