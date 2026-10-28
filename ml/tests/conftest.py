@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from sentinel_ml.testing import write_synthetic_partitioned
 from sentinel_ml.training.train import CANDIDATES, TrainingResult, train_model
-from tests.synthetic import write_synthetic_partitioned
 
 
 @pytest.fixture(scope="session")

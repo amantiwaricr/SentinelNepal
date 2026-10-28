@@ -36,6 +36,41 @@ def cmd_create_user(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_register_model(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from app.core.config import get_settings
+    from app.services.models import register_model
+
+    with default_sessionmaker()() as db:
+        model = register_model(
+            db,
+            get_settings(),
+            AuditContext.system("cli"),
+            Path(args.artifact_dir),
+            reports_dir=Path(args.reports_dir) if args.reports_dir else None,
+            activate=args.activate,
+            allow_synthetic=args.allow_synthetic,
+        )
+    threshold = (
+        f"alert threshold {model.alert_threshold:.6f}"
+        if model.alert_threshold is not None
+        else "no threshold.json found: alerts use the model's default decision"
+    )
+    print(f"Registered model {model.id}: {model.name} {model.version} ({threshold})")
+    print(f"Active: {model.is_active}; SHA-256 {model.artifact_sha256}")
+    return 0
+
+
+def cmd_activate_model(args: argparse.Namespace) -> int:
+    from app.services.models import activate_model
+
+    with default_sessionmaker()() as db:
+        model = activate_model(db, AuditContext.system("cli"), args.model_id)
+    print(f"Activated model {model.id}: {model.name} {model.version}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -49,6 +84,26 @@ def main(argv: list[str] | None = None) -> int:
         help="Read the password from this environment variable instead of prompting",
     )
     p_user.set_defaults(handler=cmd_create_user)
+
+    p_reg = sub.add_parser(
+        "register-model", help="Register a trained artifact (from ml/artifacts) for use"
+    )
+    p_reg.add_argument("artifact_dir", help="Directory inside MODEL_ARTIFACTS_DIR")
+    p_reg.add_argument(
+        "--reports-dir",
+        help="ml/reports directory; evaluation.json and threshold.json are read from it",
+    )
+    p_reg.add_argument("--activate", action="store_true", help="Make it the active model")
+    p_reg.add_argument(
+        "--allow-synthetic",
+        action="store_true",
+        help="Permit models trained on synthetic test data (testing only)",
+    )
+    p_reg.set_defaults(handler=cmd_register_model)
+
+    p_act = sub.add_parser("activate-model", help="Make a registered model active")
+    p_act.add_argument("model_id", type=int)
+    p_act.set_defaults(handler=cmd_activate_model)
 
     args = parser.parse_args(argv)
     try:

@@ -16,9 +16,12 @@ from app import models as _models  # noqa: F401  (registers all tables on Base.m
 from app.core.config import Settings
 from app.db.base import Base
 from app.main import create_app
+from app.models.model_version import ModelVersion
 from app.models.user import User
+from app.services.analyses import process_next_run
 from app.services.audit import AuditContext
 from app.services.health import ALEMBIC_INI
+from app.services.models import register_model
 from app.services.users import create_user
 from tests.conftest import make_settings
 
@@ -111,12 +114,12 @@ def clean_db(database_url: str, alembic_config: Config) -> Iterator[Engine]:
 
 
 @pytest.fixture
-def app_settings(database_url: str, tmp_path: Path) -> Settings:
+def app_settings(database_url: str, tmp_path: Path, model_artifacts: dict[str, Path]) -> Settings:
     return make_settings(
         database_url=database_url,
         analysis_worker_enabled=False,
         upload_dir=tmp_path / "uploads",
-        model_artifacts_dir=tmp_path / "artifacts",
+        model_artifacts_dir=model_artifacts["artifacts"],
     )
 
 
@@ -171,3 +174,54 @@ def admin(app: FastAPI, admin_user: User) -> Iterator[TestClient]:
 def analyst(app: FastAPI, analyst_user: User) -> Iterator[TestClient]:
     with logged_in_client(app, analyst_user.username) as client:
         yield client
+
+
+# --- Model fixtures: trained once per session on SYNTHETIC data ---------------------------
+
+
+@pytest.fixture(scope="session")
+def model_artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+    """A small Random Forest trained on synthetic data, plus its reports and threshold."""
+    from sentinel_ml.evaluation.threshold import select_threshold
+    from sentinel_ml.testing import write_synthetic_partitioned
+    from sentinel_ml.training.train import CandidateSpec, train_model
+
+    root = tmp_path_factory.mktemp("models")
+    data = write_synthetic_partitioned(root / "data", train_rows=1200, test_rows=400)
+    result = train_model(
+        data,
+        root / "artifacts",
+        root / "reports",
+        rf_estimators=15,
+        n_jobs=1,
+        candidates=(CandidateSpec("random_forest", "random_forest", None),),
+        version="synthetic",
+    )
+    select_threshold(result.artifact_dir, data, root / "reports", latency_calls=5)
+    return {
+        "artifacts": root / "artifacts",
+        "reports": root / "reports",
+        "artifact_dir": result.artifact_dir,
+        "data": data,
+    }
+
+
+@pytest.fixture
+def registered_model(
+    db: Session, app_settings: Settings, model_artifacts: dict[str, Path]
+) -> ModelVersion:
+    return register_model(
+        db,
+        app_settings,
+        AuditContext.system("test"),
+        model_artifacts["artifact_dir"],
+        reports_dir=model_artifacts["reports"],
+        activate=True,
+        allow_synthetic=True,
+    )
+
+
+def run_queued_analyses(app: FastAPI) -> None:
+    """Process the analysis queue synchronously (the background thread is off in tests)."""
+    while process_next_run(app.state.sessionmaker, app.state.settings, app.state.predictors):
+        pass

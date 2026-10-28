@@ -13,7 +13,7 @@ from sentinel_ml.features.dataset import (
     sha256_file,
 )
 from sentinel_ml.schema import FEATURES_DESCRIPTION_FILE, FULL_RECORD_COLUMNS, TRAIN_FILE
-from tests.synthetic import full_record_rows, write_synthetic_partitioned
+from sentinel_ml.testing import full_record_rows, write_synthetic_partitioned
 
 # Raw names as they appear in the published description file (mixed case, a stray space).
 RAW_DESCRIPTION_NAMES = [

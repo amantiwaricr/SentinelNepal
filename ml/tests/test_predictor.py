@@ -11,8 +11,8 @@ from sentinel_ml.features.cleaning import clean_frame
 from sentinel_ml.inference import Predictor
 from sentinel_ml.inference.predictor import MAX_BATCH_RECORDS
 from sentinel_ml.schema import CLASS_LABELS, NORMAL
+from sentinel_ml.testing import make_partitioned_frame
 from sentinel_ml.training.train import TrainingResult
-from tests.synthetic import make_partitioned_frame
 
 
 @pytest.fixture(scope="module")
@@ -178,8 +178,8 @@ def test_artifact_from_another_scikit_learn_version_is_refused(
 
 
 def test_random_forest_predicts_single_threaded_with_identical_results(tmp_path: Path) -> None:
+    from sentinel_ml.testing import write_synthetic_partitioned
     from sentinel_ml.training.train import CandidateSpec, train_model
-    from tests.synthetic import write_synthetic_partitioned
 
     data = write_synthetic_partitioned(tmp_path / "data", train_rows=400, test_rows=60)
     result = train_model(

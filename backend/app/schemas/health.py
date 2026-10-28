@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 
 class ComponentStatus(BaseModel):
-    status: Literal["ok", "pending", "unavailable", "unknown"]
+    status: Literal["ok", "pending", "unavailable", "unknown", "not_configured"]
     detail: str | None = None
 
 
@@ -19,4 +19,8 @@ class ReadinessOut(BaseModel):
     service: str
     version: str
     environment: str
+    components: dict[str, ComponentStatus]
+
+
+class ComponentsOut(BaseModel):
     components: dict[str, ComponentStatus]

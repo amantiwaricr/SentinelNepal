@@ -1,4 +1,6 @@
-"""SYNTHETIC test data in the UNSW-NB15 file layouts.
+"""SYNTHETIC test data in the UNSW-NB15 file layouts — for automated tests only.
+
+Shared by the ml/ and backend/ test suites so neither copies the other's helpers.
 
 Values are random with class-dependent shifts so that models can learn *something*; they
 do not resemble real traffic. Directories written here contain the synthetic marker file,

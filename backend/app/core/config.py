@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     dataset_model_profile: str = "full"
     analysis_worker_enabled: bool = True
     analysis_poll_seconds: float = Field(default=2.0, gt=0)
+    # Safety cap: beyond this, further alerts in one run are counted but not stored.
+    max_alerts_per_run: int = Field(default=100_000, ge=1)
 
     # --- Firewall requests (execution arrives in Phase 7) ---
     firewall_allow_self_approval: bool = False

@@ -13,6 +13,8 @@ def make_settings(**overrides: object) -> Settings:
         "environment": "test",
         "log_format": "text",
         "cors_origins": ["http://localhost:5173"],
+        # Tests drive analysis runs explicitly instead of through the background thread.
+        "analysis_worker_enabled": False,
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]

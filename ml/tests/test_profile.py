@@ -4,7 +4,7 @@ import pandas as pd
 
 from sentinel_ml.features.profile import profile_dataset
 from sentinel_ml.schema import TRAIN_FILE
-from tests.synthetic import write_synthetic_partitioned
+from sentinel_ml.testing import write_synthetic_partitioned
 
 
 def test_profile_reports_real_file_properties(tmp_path: Path) -> None:

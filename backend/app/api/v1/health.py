@@ -1,14 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
-from app.api.deps import AppSettings
+from app.api.deps import AnalystUser, AppSettings, DbSession
 from app.core.config import APP_NAME, APP_VERSION
 from app.db.session import get_engine
-from app.schemas.health import LivenessOut, ReadinessOut
-from app.services.health import check_database
+from app.schemas.health import ComponentsOut, LivenessOut, ReadinessOut
+from app.services.health import check_components, check_database
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -39,3 +39,20 @@ def ready(
         components={"database": database, "migrations": migrations},
     )
     return JSONResponse(status_code=200 if is_ready else 503, content=body.model_dump())
+
+
+@router.get("/components", response_model=ComponentsOut)
+def components(
+    request: Request,
+    _: AnalystUser,
+    db: DbSession,
+    settings: AppSettings,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> ComponentsOut:
+    """Detailed status for signed-in users (it reveals model and queue details)."""
+    worker = request.app.state.analysis_worker
+    return ComponentsOut(
+        components=check_components(
+            db, engine, settings, worker_alive=None if worker is None else worker.alive
+        )
+    )

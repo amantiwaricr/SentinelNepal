@@ -22,7 +22,8 @@ the live collector) imports. Feature handling exists only here (`AGENTS.md`).
 | `sentinel_ml/inference/predictor.py` | `Predictor`: load (hash-checked), validate, predict |
 | `sentinel_ml/artifacts.py` | Artifact layout, manifest, integrity checks |
 | `sentinel_ml/cli.py` | `sentinel-ml` command |
-| `tests/` | 90+ tests on **synthetic** fixtures (`tests/synthetic.py`) |
+| `sentinel_ml/testing.py` | **Synthetic** data generator shared by the ml/ and backend/ test suites |
+| `tests/` | Tests on synthetic fixtures only |
 
 ## Setup
 
@@ -158,7 +159,7 @@ for r in batch.rejected:
 cd ml && ruff format --check . && ruff check . && mypy && pytest
 ```
 
-All fixtures are synthetic (`tests/synthetic.py`) and written to temporary directories with
+All fixtures are synthetic (`sentinel_ml/testing.py`) and written to temporary directories with
 the synthetic marker file.
 
 ## Known limitations

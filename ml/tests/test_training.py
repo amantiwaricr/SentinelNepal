@@ -7,8 +7,8 @@ import pytest
 from sentinel_ml.artifacts import ArtifactError, load_manifest, load_pipeline, save_artifact
 from sentinel_ml.features.dataset import DatasetError, sha256_file
 from sentinel_ml.schema import CLASS_LABELS, TEST_FILE, TRAIN_FILE, get_profile
+from sentinel_ml.testing import make_partitioned_frame, write_synthetic_partitioned
 from sentinel_ml.training.train import CANDIDATES, CandidateSpec, TrainingResult, train_model
-from tests.synthetic import make_partitioned_frame, write_synthetic_partitioned
 
 FAST_RF = (CandidateSpec("random_forest", "random_forest", None),)
 

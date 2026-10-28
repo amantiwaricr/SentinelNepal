@@ -32,3 +32,16 @@ def test_ready_reports_unreachable_database_without_leaking_details() -> None:
     # Neither credentials nor host details may appear in the public response.
     assert "secret-pw" not in response.text
     assert "127.0.0.1" not in response.text
+
+
+def test_app_starts_with_worker_enabled_while_database_is_down() -> None:
+    # Regression: the worker used to query the database during startup, so an unavailable
+    # database stopped the whole API from starting.
+    settings = make_settings(
+        database_url="postgresql+psycopg://nobody:pw@127.0.0.1:1/nodb",
+        analysis_worker_enabled=True,
+        analysis_poll_seconds=0.05,
+    )
+    with TestClient(create_app(settings)) as client:
+        assert client.get("/api/v1/health/live").status_code == 200
+        assert client.app.state.analysis_worker.alive  # type: ignore[attr-defined]

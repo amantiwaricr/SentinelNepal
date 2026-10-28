@@ -14,6 +14,8 @@ from app.core.logging import configure_logging
 from app.core.middleware import CSRFHeaderMiddleware, RequestContextMiddleware
 from app.core.rate_limit import SlidingWindowLimiter
 from app.db.session import build_sessionmaker, engine_from_settings
+from app.services.ml_service import PredictorCache
+from app.workers.analysis import AnalysisWorker
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +27,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("%s %s starting (environment=%s)", APP_NAME, APP_VERSION, settings.environment)
+        if settings.analysis_worker_enabled:
+            app.state.analysis_worker = AnalysisWorker(
+                app.state.sessionmaker, settings, app.state.predictors
+            )
+            app.state.analysis_worker.start()
         yield
         logger.info("%s shutting down", APP_NAME)
+        if app.state.analysis_worker is not None:
+            app.state.analysis_worker.stop()
         app.state.engine.dispose()
 
     app = FastAPI(
@@ -53,6 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine_from_settings(settings)  # connects lazily
     app.state.sessionmaker = build_sessionmaker(app.state.engine)
+    app.state.predictors = PredictorCache(settings)
+    app.state.analysis_worker = None  # started in lifespan when enabled
     app.state.login_limiter = SlidingWindowLimiter(
         settings.login_rate_limit_attempts, settings.login_rate_limit_window_seconds
     )

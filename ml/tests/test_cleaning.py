@@ -5,7 +5,7 @@ import pytest
 
 from sentinel_ml.features.cleaning import SchemaError, clean_frame
 from sentinel_ml.schema import ALL_FEATURES, NUMERIC_FEATURES
-from tests.synthetic import make_partitioned_frame
+from sentinel_ml.testing import make_partitioned_frame
 
 
 def _frame(rows: int = 3) -> pd.DataFrame:

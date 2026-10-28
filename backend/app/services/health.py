@@ -9,10 +9,18 @@ from pathlib import Path
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import Engine, text
+from sentinel_ml.artifacts import MODEL_FILE
+from sentinel_ml.features.dataset import sha256_file
+from sqlalchemy import Engine, func, select, text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
+from app.core.config import Settings
+from app.core.errors import AppError
+from app.models.analysis import DatasetAnalysisRun
+from app.models.collector import Collector
 from app.schemas.health import ComponentStatus
+from app.services.models import active_model, artifact_path
 
 logger = logging.getLogger(__name__)
 
@@ -60,3 +68,52 @@ def check_database(engine: Engine) -> tuple[ComponentStatus, ComponentStatus]:
     else:
         migrations = ComponentStatus(status="ok", detail=f"At revision {current}")
     return database, migrations
+
+
+def check_components(
+    db: Session, engine: Engine, settings: Settings, *, worker_alive: bool | None
+) -> dict[str, ComponentStatus]:
+    database, migrations = check_database(engine)
+    components = {"database": database, "migrations": migrations}
+
+    model = active_model(db, settings.dataset_model_profile)
+    if model is None:
+        components["dataset_model"] = ComponentStatus(
+            status="unavailable", detail="No active model; register one with python -m app.cli"
+        )
+    else:
+        label = f"{model.name} {model.version}"
+        try:
+            path = artifact_path(settings, model.artifact_dir) / MODEL_FILE
+            intact = path.is_file() and sha256_file(path) == model.artifact_sha256
+        except AppError:
+            intact = False
+        components["dataset_model"] = (
+            ComponentStatus(status="ok", detail=f"{label}; file matches registered SHA-256")
+            if intact
+            else ComponentStatus(status="unavailable", detail=f"{label}; file missing or modified")
+        )
+
+    queued = db.scalar(
+        select(func.count())
+        .select_from(DatasetAnalysisRun)
+        .where(DatasetAnalysisRun.status.in_(("queued", "running")))
+    )
+    if worker_alive is None:
+        components["analysis_worker"] = ComponentStatus(
+            status="not_configured", detail="Disabled by ANALYSIS_WORKER_ENABLED"
+        )
+    else:
+        components["analysis_worker"] = ComponentStatus(
+            status="ok" if worker_alive else "unavailable",
+            detail=f"{queued} run(s) queued or running",
+        )
+    components["firewall_helper"] = ComponentStatus(
+        status="not_configured", detail="The firewall helper is added in Phase 7"
+    )
+    collectors = db.scalar(select(func.count()).select_from(Collector)) or 0
+    components["collectors"] = ComponentStatus(
+        status="not_configured" if collectors == 0 else "unknown",
+        detail="No collectors registered" if collectors == 0 else f"{collectors} registered",
+    )
+    return components
