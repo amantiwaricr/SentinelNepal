@@ -1,0 +1,5 @@
+# Runtime dependencies of the sentinel_ml package (pinned). The backend installs these too.
+numpy==2.5.4
+pandas==3.1.0
+scikit-learn==1.9.1
+joblib==1.6.0

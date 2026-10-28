@@ -4,7 +4,10 @@ _Last updated: 2026-10-28_
 
 ## Current phase
 
-**Phase 1 — Repository foundation: complete.** Next: Phase 2 (dataset processing and ML engine).
+**Phase 2 — Dataset processing and ML engine: code complete and tested on synthetic data;
+blocked on the real dataset.** No model has been trained on UNSW-NB15 and no real metrics
+exist yet. Phase 2's acceptance criteria that need real data (real evaluation reports,
+reproducibility on the real files) are open until the dataset is in `ml/data/`.
 
 ## Phase tracker
 
@@ -12,7 +15,7 @@ _Last updated: 2026-10-28_
 |---|---|---|
 | 0 | Planning and architecture | Approved as written (2026-10-28) |
 | 1 | Repository foundation | Complete (see acceptance below) |
-| 2 | Dataset processing and ML engine | Not started |
+| 2 | Dataset processing and ML engine | Code complete; awaiting UNSW-NB15 files for real training/evaluation |
 | 3 | Backend APIs, DB, auth, incidents | Not started |
 | 4 | Frontend SOC dashboard | Not started |
 | 5 | Recommendations and hardening | Not started |
@@ -24,6 +27,71 @@ Phase 0 decisions recorded at approval: a different admin must approve each bloc
 (configurable for solo demos); only admins request blocks; server-side sessions in an
 HttpOnly cookie; team roles as in `implementation-plan.md` §2. Lab VM availability and
 written supervisor authorisation are still to be confirmed before Phase 6.
+
+## Phase 2 — completed work
+
+- **`sentinel_ml` package** (`ml/`), installable, imported by future backend/collector code:
+  - `schema.py`: canonical columns for both UNSW-NB15 file families, 10 class labels,
+    excluded columns with reasons, three feature profiles (`full` 39 features,
+    `full_no_ttl` 36, `live_compatible` 27), and the dataset-to-Zeek availability table.
+  - Shared validation (`clean_frame`): every value validated; invalid records rejected with
+    reasons; only three legitimately-blank HTTP/FTP counters may be imputed.
+  - Loading of partitioned and full-record files (chunked, header detection, column aliasing,
+    hex ports, IPv4/IPv6 metadata, epoch timestamps → UTC), SHA-256 of every source file.
+  - `sentinel-ml profile`: real column names, inferred types, blanks, raw and normalised
+    label distributions, rejections, duplicates, train/test overlap, IP availability.
+  - Training: duplicates removed, stratified 80/20 split of the official training file
+    (seed 42), four candidates (Logistic Regression and Random Forest, each with/without
+    balanced class weights), selection on validation macro-F1 (tie: lower FPR). The testing
+    file is never read during training. Fit warnings recorded.
+  - Evaluation (run once per artifact): per-class precision/recall/F1, confusion matrix,
+    binary FPR/FNR, ROC-AUC/AP of the uncalibrated score, results on test rows not
+    duplicating training rows, latency (single-record median/p95, batch throughput),
+    environment and git commit. Markdown reports explain each metric's limitations.
+  - `Predictor`: loads only if the model file's SHA-256 matches a trusted value, the
+    feature-schema version matches, and scikit-learn is the training version; rejects
+    malformed records individually with reasons; reports imputed features and unseen
+    categories; global feature importance (labelled as non-causal).
+  - Artifacts: `<kind>-<profile>-<UTC timestamp>/` with `model.joblib` and `manifest.json`
+    (data hashes, seed, hyperparameters, all candidates' validation results, versions,
+    git commit, model hash); never overwritten.
+- `docs/feature-mapping.md`: generated from code; a test fails if it drifts.
+- `ml/data/README.md` (official download and placement), `ml/README.md` (commands,
+  decisions, versioning, metric limitations, known limitations).
+- CI: new `ml` job (format, lint, strict mypy, tests).
+
+## Phase 2 — test results (actually run on 2026-10-28)
+
+| Check | Command | Result |
+|---|---|---|
+| ML tests (synthetic fixtures only) | `cd ml && pytest` | **90 passed** |
+| ML lint / format | `ruff check .`, `ruff format --check .` | Passed |
+| ML types | `mypy` (strict, with pandas-stubs) | No issues in 19 files |
+| End-to-end on synthetic data | profile → train → evaluate | Reports generated with "SYNTHETIC DATA" banner (not committed, not quoted) |
+| Scale check (synthetic, 175 341 train / 82 332 test rows, 4 cores) | train + evaluate | Train (4 candidates) ≈ 84 s; evaluate ≈ 41 s; peak memory ≈ 1 GB; RF model ≈ 64 MB. Timing only; real data will differ |
+
+Tests cover: missing/extra columns, wrong types (strings, booleans, numbers as categories),
+NaN/±inf, blank values, unknown categories, invalid/inconsistent labels, empty input,
+oversized batches, header-only and empty files, file-family detection, chunked-vs-whole
+loading equality, leakage guards, reproducibility with a fixed seed, duplicate removal,
+training without the testing file, evaluation refusing changed training data or mixing
+synthetic with real data, hash/tamper/schema/library-version checks on artifacts, and that
+the predictor reproduces the saved pipeline's predictions.
+
+### Defects found and fixed during Phase 2
+
+1. IPs that failed to parse became `NaN` instead of `None` under pandas 3; now explicit object
+   dtype keeps `None` (JSON `null`) for the API.
+2. Header detection required `dur`, so a file missing that column was misreported as an
+   unrecognised layout; detection now uses the label columns, and the missing column is named.
+
+### Blocker
+
+The development sandbox's network policy denies `research.unsw.edu.au` and
+`unsw-my.sharepoint.com`, so the official dataset could not be downloaded there. Unofficial
+mirrors were deliberately not used. Either allow those domains in the environment's network
+settings, or download the files on a team machine (see `ml/data/README.md`) and run the
+commands in `ml/README.md`.
 
 ## Phase 1 — completed work
 
@@ -100,9 +168,15 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 - Version choices: TypeScript is held at 6.0 because `typescript-eslint` 8.72 supports
   `<6.1`; React Router is held at 7.x (maintained) rather than 8.x to use a well-documented API.
 
-## Next steps (Phase 2)
+- ML: scores are uncalibrated (no calibration study yet); UNSW-NB15 has no brute-force class;
+  live feature mapping is preliminary until Phase 6.
 
-1. Download UNSW-NB15 partitioned CSVs (and full-record CSVs for IP-aware demos) into `ml/data/`.
-2. Profile the real files (columns, types, missing values, labels, duplicates) and record the results.
-3. Build the `sentinel_ml` package: schema, preprocessing pipeline, LR/RF training, validation
-   selection, test evaluation, latency, `Predictor`, artifact manifest.
+## Next steps
+
+1. Obtain the official UNSW-NB15 files and place them in `ml/data/`.
+2. Run `sentinel-ml profile`; review `ml/reports/data_profile.md`. If the real schema differs
+   from the published description, fix `schema.py` (and tests) before training.
+3. Train `full`, `full_no_ttl`, `live_compatible`; evaluate each once; commit the reports;
+   record the real metrics here.
+4. Phase 3: backend models, auth, incidents, audit; integrate `Predictor` via an `ml_service`
+   that stores model hashes in `model_versions`.

@@ -70,7 +70,7 @@ validate + predict + explain); manifest + versioning; `full` and `live_compatibl
 profiles; ablation with/without TTL features; synthetic fixtures for unit tests.
 
 Acceptance:
-- [ ] `python -m sentinel_ml.training.train --profile full` and `... --profile live_compatible` reproduce the artifact (same metrics with same seed and data hash).
+- [ ] `sentinel-ml train --profile full` and `sentinel-ml train --profile live_compatible` reproduce the artifact (same metrics with same seed and data hash).
 - [ ] Reports in `ml/reports/` contain precision/recall/F1, confusion matrix, FPR, per-class metrics, latency, and environment details — generated from real runs.
 - [ ] Synthetic-fixture tests are labelled `synthetic` and never quoted as model performance.
 - [ ] Tests cover missing columns, extra columns, wrong types, NaN/inf, unknown categories, empty input.

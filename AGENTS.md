@@ -85,7 +85,8 @@ temporary, reversible nftables blocks applied by a narrowly privileged helper. D
     (set `TEST_DATABASE_URL` to a database whose name ends in `_test` to include the
     PostgreSQL integration tests; after model changes also run `alembic check`)
   * Frontend: `cd frontend && npm run format:check && npm run lint && npm run typecheck && npm test && npm run build`
-  * `ml/`, `collector/`, `firewall/`: `pytest` in each directory once those phases add code.
+  * ML: `cd ml && ruff format --check . && ruff check . && mypy && pytest`
+  * `collector/`, `firewall/`: `pytest` in each directory once those phases add code.
 
 ## 6. Security rules
 

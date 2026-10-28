@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-ml"
+version = "0.1.0"
+description = "SentinelNepal ML pipeline: UNSW-NB15 preprocessing, training, evaluation, inference"
+requires-python = ">=3.12"
+# Pinned versions live in requirements.txt; these ranges only guard against incompatible installs.
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "scikit-learn>=1.6",
+    "joblib>=1.4",
+]
+
+[project.scripts]
+sentinel-ml = "sentinel_ml.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sentinel_ml*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF", "NPY", "PD"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S311"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["sentinel_ml"]
+
+[[tool.mypy.overrides]]
+# scikit-learn and joblib ship no type information.
+module = ["sklearn.*", "joblib.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = ["error::FutureWarning", "error::DeprecationWarning:sentinel_ml.*"]
