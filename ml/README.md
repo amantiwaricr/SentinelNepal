@@ -4,10 +4,9 @@ Reproducible network-intrusion classification on the public **UNSW-NB15** datase
 preprocessing, training, evaluation, and the prediction service that the backend (and later
 the live collector) imports. Feature handling exists only here (`AGENTS.md`).
 
-> **Status (Phase 2):** pipeline implemented and tested on **synthetic** data only. The real
-> dataset has not been downloaded in the development environment yet, so **no model has been
-> trained on UNSW-NB15 and no real metrics exist**. Follow the commands below once the files are
-> in `ml/data/` (see [data/README.md](data/README.md)).
+> **Status (Phase 2 complete):** three models trained and evaluated on the official UNSW-NB15
+> files; results and their limitations are summarised in
+> [docs/model-evaluation.md](../docs/model-evaluation.md), with full reports in `reports/`.
 
 ## Layout
 
@@ -53,9 +52,11 @@ Each `train` prints the artifact directory and its SHA-256. Reports go to
 git-ignored and are re-created by the same commands. With the same data files (same hashes),
 seed, and library versions, training gives identical results (a test checks this).
 
-Measured on synthetic data of the same size as the real training file (4 CPU cores, Linux):
-training all four candidates took about 1.5 minutes, test evaluation about 40 seconds, peak
-memory about 1 GB. Real-data timings will differ.
+On the real files, one `train` run took about 1–1.5 hours on a team laptop (Windows 11,
+8 logical CPUs): each Random Forest candidate fits in under 30 seconds, but each Logistic
+Regression candidate took 11–39 minutes. Each run prints timestamped progress, and
+`evaluate` takes a few minutes. (An earlier estimate of about 1.5 minutes came from
+synthetic data, which is far easier to fit — it did not carry over.)
 
 ## Pipeline and decisions
 

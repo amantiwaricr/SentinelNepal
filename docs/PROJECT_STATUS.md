@@ -4,10 +4,9 @@ _Last updated: 2026-10-28_
 
 ## Current phase
 
-**Phase 2 — Dataset processing and ML engine: code complete and tested on synthetic data;
-blocked on the real dataset.** No model has been trained on UNSW-NB15 and no real metrics
-exist yet. Phase 2's acceptance criteria that need real data (real evaluation reports,
-reproducibility on the real files) are open until the dataset is in `ml/data/`.
+**Phase 2 — Dataset processing and ML engine: complete.** Three models trained and evaluated
+once on the official UNSW-NB15 files; results in [`model-evaluation.md`](model-evaluation.md).
+Next: Phase 3 (backend APIs, database, authentication, incidents).
 
 ## Phase tracker
 
@@ -15,7 +14,7 @@ reproducibility on the real files) are open until the dataset is in `ml/data/`.
 |---|---|---|
 | 0 | Planning and architecture | Approved as written (2026-10-28) |
 | 1 | Repository foundation | Complete (see acceptance below) |
-| 2 | Dataset processing and ML engine | Code complete; awaiting UNSW-NB15 files for real training/evaluation |
+| 2 | Dataset processing and ML engine | Complete (real results; limitations documented) |
 | 3 | Backend APIs, DB, auth, incidents | Not started |
 | 4 | Frontend SOC dashboard | Not started |
 | 5 | Recommendations and hardening | Not started |
@@ -105,10 +104,41 @@ Distinct test rows also present in the training file: 941. `proto` has 133 (trai
 Conclusion: the code's schema assumptions hold for these files; no schema change needed.
 Full report: `ml/reports/data_profile.md` (to be committed from the team machine).
 
-### Remaining for Phase 2
+### Real training and evaluation (team machine, Windows 11, 2026-10-28, commit `d702fce`)
 
-Train `full`, `full_no_ttl`, and `live_compatible` on the real files, evaluate each once,
-commit the reports, and record the real metrics here.
+Selected model for every profile: `random_forest_balanced` (highest validation macro-F1).
+Test file, evaluated once per model (details: [`model-evaluation.md`](model-evaluation.md)):
+
+| Profile | Features | Test macro-F1 | Attack recall | False-positive rate (Normal flagged) | ROC-AUC |
+|---|---|---|---|---|---|
+| `full` | 39 | 50.3% | 99.8% | 39.7% | 0.979 |
+| `full_no_ttl` | 36 | 49.1% | 99.6% | 39.8% | 0.977 |
+| `live_compatible` | 27 | 49.9% | 99.7% | 39.2% | 0.975 |
+
+Key findings: high attack recall but a high false-positive rate at the default decision
+(validation showed ~17%, so the official test split is shifted); most false alerts are
+predicted as Fuzzers; DoS/Analysis/Backdoor/Fuzzers/Shellcode labels are unreliable;
+removing TTL features costs little; train/test overlap does not inflate results.
+
+### Phase 2 acceptance
+
+- [x] Preprocessing and inference share one feature definition and one saved pipeline.
+- [x] Reproducible with documented commands (fixed seed and data hashes; reproducibility
+  tested on synthetic data — the 1–1.5 h real runs were not repeated).
+- [x] No obvious target leakage (identifiers, labels, IPs, ports, timestamps excluded; tested).
+- [x] Tests cover missing columns, invalid data, incorrect types.
+- [x] Valid predictions on supported inputs.
+- [x] Reports distinguish real results from synthetic tests.
+
+### Issues found during real runs
+
+1. Training printed nothing for over an hour (Logistic Regression is slow on the real data);
+   fixed by timestamped progress messages (`39c779c`).
+2. On Windows, Random Forest evaluation printed hundreds of harmless scikit-learn
+   `delayed`/`Parallel` warnings; inference now runs single-threaded and training no longer
+   uses `warnings.catch_warnings` around threaded fits (`d4efd1a`). The committed latency
+   figures predate this change.
+3. A model's `+dirty` flag counted untracked report files; fixed (`d702fce`).
 
 ## Phase 1 — completed work
 
@@ -190,10 +220,9 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Next steps
 
-1. Obtain the official UNSW-NB15 files and place them in `ml/data/`.
-2. Run `sentinel-ml profile`; review `ml/reports/data_profile.md`. If the real schema differs
-   from the published description, fix `schema.py` (and tests) before training.
-3. Train `full`, `full_no_ttl`, `live_compatible`; evaluate each once; commit the reports;
-   record the real metrics here.
-4. Phase 3: backend models, auth, incidents, audit; integrate `Predictor` via an `ml_service`
-   that stores model hashes in `model_versions`.
+1. Phase 3: backend models, auth, incidents, audit; integrate `Predictor` via an
+   `ml_service` that stores model hashes in `model_versions`.
+2. Phase 3: choose an alert threshold on the attack score from the **validation** split and
+   store it with the model version; re-measure single-threaded latency without re-scoring
+   the test set.
+3. Phase 4/5: label low-reliability predicted categories in the UI and recommendations.

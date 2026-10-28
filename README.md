@@ -8,15 +8,17 @@ dataset, raises alerts for analyst review, suggests defensive measures, and lets
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
 
-> **Status:** Phase 1 (repository foundation) complete. The backend, database migrations,
-> health checks, and dashboard shell work; detection, alerts, and response features arrive in
-> later phases. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+> **Status:** Phases 1–2 complete. The backend, database migrations, health checks, dashboard
+> shell, and the ML pipeline (trained and evaluated on UNSW-NB15) work; alerts, incidents,
+> and response features arrive in later phases. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Implementation plan](docs/implementation-plan.md)
 - [Threat model](docs/threat-model.md)
+- [Model evaluation](docs/model-evaluation.md)
+- [Feature mapping (dataset → Zeek)](docs/feature-mapping.md)
 - [Project status](docs/PROJECT_STATUS.md)
 - [Contributor and agent rules](AGENTS.md) — read before contributing
 
