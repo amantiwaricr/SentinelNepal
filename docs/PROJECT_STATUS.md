@@ -86,9 +86,9 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 - Docker image builds in the verification sandbox needed its TLS-intercepting proxy's CA,
   which was mounted at build time from sandbox-only Dockerfile copies (not committed). The
   committed Dockerfiles were unchanged and need no CA on a normal network. The CI `compose`
-  job builds the committed images without that workaround; it has not run yet.
-- GitHub Actions versions (`actions/*@v7`) were chosen from the actions' published tags; the
-  workflow has not yet run on GitHub at the time of writing.
+  job builds the committed images without that workaround, and passed (see below).
+- GitHub CI run #1 on commit `7b24229` (2026-10-28): `backend`, `frontend`, and `compose`
+  (config validation + image build of the committed Dockerfiles) jobs all succeeded.
 
 ## Known issues / limitations
 
