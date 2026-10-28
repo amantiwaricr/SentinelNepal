@@ -211,7 +211,7 @@ except where noted. `created_at`/`updated_at` on every mutable table.
 | `model_versions` | `name`, `version` (semver-ish), `artifact_path`, `artifact_sha256`, `feature_set` (`full`\|`live_compatible`), `feature_list JSONB`, `class_labels JSONB`, `metrics JSONB` (validation + test, from real runs), `training_data_ref`, `is_active`, `live_inference_approved` | unique (`name`,`version`); partial unique index: one active per `feature_set` |
 | `dataset_analysis_runs` | `uploaded_by` FK, `original_filename`, `stored_path`, `file_sha256`, `size_bytes`, `detected_schema` (`unsw_partitioned`\|`unsw_full`\|`replay`), `status` (`queued`\|`running`\|`completed`\|`failed`), `rows_total`, `rows_valid`, `rows_rejected`, `alerts_created`, `summary JSONB` (class counts), `error_message`, `model_version_id` FK, `started_at`, `finished_at` | index `status` |
 | `collectors` | `name` (unique), `token_hash`, `mode` (`observation`\|`inference`), `last_heartbeat_at`, `records_received`, `records_rejected`, `records_dropped`, `last_error` | |
-| `alerts` | `source` (`dataset`\|`live`\|`replay`), `analysis_run_id` FK null, `collector_id` FK null, `model_version_id` FK, `observed_at` (null if source has no timestamp), `src_ip INET`, `dst_ip INET`, `src_port`, `dst_port`, `protocol`, `service`, `predicted_category`, `model_score NUMERIC(5,4)`, `severity` (`low`\|`medium`\|`high`\|`critical`), `status` (`new`\|`acknowledged`\|`linked`\|`dismissed`), `evidence JSONB` (input features + top feature importances), `dedup_key` | indexes: `(created_at)`, `(status, severity)`, `predicted_category`, GiST on `src_ip` and `dst_ip` (`inet_ops`); unique `dedup_key` where not null |
+| `alerts` | `source` (`dataset`\|`live`\|`replay`), `analysis_run_id` FK null, `collector_id` FK null, `model_version_id` FK, `observed_at` (null if source has no timestamp), `src_ip INET`, `dst_ip INET`, `src_port`, `dst_port`, `protocol`, `service`, `predicted_category`, `attack_score` (1 − score(Normal), uncalibrated), `severity` (`low`\|`medium`\|`high`\|`critical`), `status` (`new`\|`acknowledged`\|`linked`\|`dismissed`), `evidence JSONB` (input features + top feature importances), `dedup_key` | indexes: `(created_at)`, `(status, severity)`, `predicted_category`, GiST on `src_ip` and `dst_ip` (`inet_ops`); unique `dedup_key` where not null |
 | `incidents` | `title`, `description`, `status` (`new`\|`under_investigation`\|`confirmed`\|`false_positive`\|`resolved`), `severity`, `created_by` FK, `assigned_to` FK null, `resolved_at` | index `status`, `assigned_to` |
 | `incident_alerts` | `incident_id` FK, `alert_id` FK, `linked_by` FK, `linked_at` | PK (`incident_id`,`alert_id`) |
 | `investigation_notes` | `incident_id` FK, `author_id` FK, `body` (text, max 10 000 chars) | notes are append-only via API |
@@ -265,13 +265,13 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
 | `GET /alerts/{id}` | analyst+ | alert + evidence + recommendations + linked incidents |
 | `PATCH /alerts/{id}` | analyst+ | `{status}` (`acknowledged`/`dismissed`), audited |
 | `GET /ips/{ip}` | analyst+ | first/last seen, counts by category, ports, protocols, related alerts, containing `/24` or `/64` |
-| `GET /subnets/{cidr}` | analyst+ | aggregation of alerts inside a CIDR (prefix limit enforced) |
+| `GET /subnets?cidr=` | analyst+ | aggregation of alerts inside a CIDR (IPv4 /16, IPv6 /48 or narrower) |
 | `GET /incidents` · `POST /incidents` | analyst+ | list / create (optionally with `alert_ids`) |
 | `GET /incidents/{id}` · `PATCH /incidents/{id}` | analyst+ | details / update `status`, `assigned_to`, `severity`, `title` |
 | `POST /incidents/{id}/alerts` | analyst+ | link alerts |
 | `GET /incidents/{id}/notes` · `POST /incidents/{id}/notes` | analyst+ | append-only notes |
 | `GET /recommendations?alert_id=` | analyst+ | recommendations for an alert |
-| `GET /recommendations/rules` | analyst+ | rule catalogue (transparency) |
+| `GET /recommendations/rules` | analyst+ | rule catalogue (transparency) — Phase 5 |
 | `GET /firewall/requests` · `POST /firewall/requests` | list: analyst+; create: admin (analyst create configurable) | `{target, duration_seconds, reason, alert_id?, incident_id?, dry_run}` |
 | `POST /firewall/requests/{id}/approve` | admin, ≠ requester | `{confirm_target: "<exact target>", note}` — typed confirmation |
 | `POST /firewall/requests/{id}/reject` | admin | `{note}` |
@@ -279,7 +279,7 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
 | `GET /firewall/status` | admin | helper reachability, dry-run flag, active rules (as reported by helper) |
 | `GET /audit-logs` | admin | filters: actor, action, target, time range (read-only; no write/delete endpoints exist) |
 | `GET /models` · `GET /models/active` | analyst+ | versions, real metrics, feature set, live-compatibility flag |
-| `GET /collectors` | analyst+ | heartbeat, mode, counters, last error |
+| `GET /collectors` | analyst+ | heartbeat, mode, counters, last error — Phase 6 |
 | `POST /ingest/flows` | collector token | batch of ≤ 500 `FlowRecord`s → 202 `{accepted, rejected, dropped}` |
 | `POST /ingest/heartbeat` | collector token | collector health |
 | `GET /health/live` | public | process up |
@@ -296,7 +296,7 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
   "src_ip": "10.10.0.23", "dst_ip": "10.10.0.5", "src_port": 51544, "dst_port": 80,
   "protocol": "tcp", "service": "http",
   "predicted_category": "Reconnaissance",
-  "model_score": 0.83,               // uncalibrated model score, not a probability
+  "attack_score": 0.83,              // 1 - score(Normal); uncalibrated, not a probability
   "severity": "medium", "status": "new",
   "model_version": {"id": 3, "name": "rf-live", "version": "1.0.0"},
   "evidence": {
@@ -325,6 +325,23 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
   "http": {"trans_depth": null, "response_body_len": null, "method": null},
   "window": {"ct_srv_src": 4, "ct_dst_ltm": 2, "...": "..."} }
 ```
+
+### 8.4 As implemented in Phase 3
+
+- Alerts are raised when `attack_score >= alert_threshold`, where the threshold is chosen on
+  the **validation split** (`sentinel-ml threshold`) and stored with the model version. Without
+  a threshold, the model's default decision is used. The alert category is the highest-scoring
+  attack class. Severity is a documented heuristic (category, lowered when the score < 0.8).
+- Models are registered only from the server (`python -m app.cli register-model`); the API
+  can list and activate them (`POST /models/{id}/activate`, admin) but never accepts files.
+- Uploads are analysed by an in-process background thread, one run at a time
+  (`SELECT … FOR UPDATE SKIP LOCKED`); runs interrupted by a restart are marked failed.
+- Additional endpoints: `GET /incidents/{id}/history` (audit entries about an incident),
+  `GET /health/components` (signed-in users), `GET /firewall/requests/{id}`.
+- Firewall approval needs a different admin (configurable) and the target typed again; until
+  Phase 7 approved requests are recorded with `applied=false` and nothing is executed.
+- The authorisation matrix test enumerates every API route from the OpenAPI schema; an
+  unclassified new route fails CI.
 
 ## 9. Machine-learning pipeline
 

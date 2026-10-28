@@ -8,9 +8,10 @@ dataset, raises alerts for analyst review, suggests defensive measures, and lets
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
 
-> **Status:** Phases 1–2 complete. The backend, database migrations, health checks, dashboard
-> shell, and the ML pipeline (trained and evaluated on UNSW-NB15) work; alerts, incidents,
-> and response features arrive in later phases. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+> **Status:** Phases 1–3 complete: backend API with authentication, alerts, incidents,
+> audit log and firewall *request* workflow; ML pipeline trained and evaluated on UNSW-NB15.
+> The dashboard UI (Phase 4), live monitoring (Phase 6) and firewall execution (Phase 7) come
+> later. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
 
@@ -107,6 +108,45 @@ npm run dev                       # http://localhost:5173, proxies /api to local
 Set `API_PROXY_TARGET` if the backend runs elsewhere. `frontend/.env.example` documents
 `VITE_API_BASE_URL` (default `/api/v1`).
 
+## Operating the backend
+
+Administrative commands run on the backend host (or inside the container) and are never
+exposed over HTTP.
+
+**1. Create the first administrator** (and more users the same way):
+
+```bash
+cd backend
+python -m app.cli create-user --username admin1 --role admin
+```
+
+With Docker: `docker compose exec backend python -m app.cli create-user --username admin1 --role admin`.
+Passwords need at least 12 characters and must not contain the username. Further users can
+be managed by an admin through the API (`/api/v1/users`).
+
+**2. Register a trained model** so uploads can be analysed. After training and evaluating it
+(see [ml/README.md](ml/README.md)), choose its alert threshold on the validation split, then
+register and activate it:
+
+```bash
+cd ml
+sentinel-ml threshold artifacts/<artifact-dir> --target-fpr 0.05
+cd ../backend
+python -m app.cli register-model ../ml/artifacts/<artifact-dir> --reports-dir ../ml/reports --activate
+```
+
+With Docker, `ml/artifacts` is mounted read-only at `/models`:
+`docker compose exec backend python -m app.cli register-model /models/<artifact-dir> --activate`
+(without `--reports-dir`, alerts use the model's default decision instead of a threshold).
+The model's SHA-256 is stored at registration; a model file that changes on disk afterwards
+is never loaded.
+
+**3. Use the API** — interactive docs at http://localhost:8000/api/docs. Sign in with
+`POST /api/v1/auth/login`; every state-changing request must send the header
+`X-Requested-With: SentinelNepal`. Upload a UNSW-NB15-format CSV to
+`POST /api/v1/datasets/analyses`; it is analysed in the background and its alerts appear
+under `/api/v1/alerts`.
+
 ## Running the tests
 
 ### Backend
@@ -191,6 +231,8 @@ All settings come from environment variables (see `.env.example`). Never commit 
 | `/health/ready` returns 503 with database `unavailable` | Check that `db` is running and `.env` credentials match; the API recovers automatically once the DB is back |
 | `address already in use` for 5173, 8000, or 5433 | Stop the other process, or change the host port in `docker-compose.yml` / `POSTGRES_HOST_PORT` |
 | `docker compose` says `Set POSTGRES_PASSWORD in .env` | Create `.env` from `.env.example` |
+| Upload returns 503 `model_unavailable` | Register and activate a model (see "Operating the backend") |
+| API returns 403 `csrf_check_failed` | Send `X-Requested-With: SentinelNepal` on POST/PATCH/DELETE requests |
 | `npm error Exit handler never called!` or pip timeouts during `docker compose up --build` | A slow or unstable connection interrupted package downloads. Run the same command again: already-downloaded packages are cached, so each retry gets further. On very slow links, build one image at a time: `docker compose build backend`, then `docker compose build frontend`, then `docker compose up` |
 | `pip`/`npm` SSL errors during `docker build` on a network with TLS inspection | The build container does not trust the network's proxy CA; build on a network without TLS interception or ask the network administrator for the CA |
 

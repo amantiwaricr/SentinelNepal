@@ -81,7 +81,7 @@ Acceptance:
 
 Tasks: ORM models + migrations for all tables in `architecture.md` §7; Argon2 hashing;
 session login/logout; role dependencies; login rate limiting + account lockout; CLI to
-create the first admin (`python -m app.cli create-admin`); all REST endpoints in §8 except
+create the first admin (`python -m app.cli create-user --role admin`); all REST endpoints in §8 except
 ingest/WS; dataset analysis runner (background thread, one run at a time); `ml_service`
 wrapper; audit service + DB trigger; seed script for demo users (dev only).
 

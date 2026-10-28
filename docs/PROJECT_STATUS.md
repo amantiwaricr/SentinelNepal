@@ -4,9 +4,9 @@ _Last updated: 2026-10-28_
 
 ## Current phase
 
-**Phase 2 — Dataset processing and ML engine: complete.** Three models trained and evaluated
-once on the official UNSW-NB15 files; results in [`model-evaluation.md`](model-evaluation.md).
-Next: Phase 3 (backend APIs, database, authentication, incidents).
+**Phase 3 — Backend APIs, database, authentication, incidents: complete.** Next: Phase 4
+(frontend SOC dashboard). One Phase 3 task needs the team machine: choose the alert threshold
+for the real models with `sentinel-ml threshold` (see Next steps).
 
 ## Phase tracker
 
@@ -15,7 +15,7 @@ Next: Phase 3 (backend APIs, database, authentication, incidents).
 | 0 | Planning and architecture | Approved as written (2026-10-28) |
 | 1 | Repository foundation | Complete (see acceptance below) |
 | 2 | Dataset processing and ML engine | Complete (real results; limitations documented) |
-| 3 | Backend APIs, DB, auth, incidents | Not started |
+| 3 | Backend APIs, DB, auth, incidents | Complete |
 | 4 | Frontend SOC dashboard | Not started |
 | 5 | Recommendations and hardening | Not started |
 | 6 | Live network monitoring | Not started |
@@ -26,6 +26,89 @@ Phase 0 decisions recorded at approval: a different admin must approve each bloc
 (configurable for solo demos); only admins request blocks; server-side sessions in an
 HttpOnly cookie; team roles as in `implementation-plan.md` §2. Lab VM availability and
 written supervisor authorisation are still to be confirmed before Phase 6.
+
+## Phase 3 — completed work
+
+- **Schema** (migration `0002`): sessions, model versions, analysis runs, collectors, alerts
+  (`INET` columns, GiST indexes), incidents, incident–alert links, notes, recommendations,
+  firewall requests and results, audit logs. CHECK constraints from shared enums; partial
+  unique indexes (one active model per profile; one open firewall request per target); a
+  trigger rejecting UPDATE, DELETE and TRUNCATE on `audit_logs`.
+- **Authentication**: Argon2id; password policy; timing-equalised failures; opaque session
+  token (SHA-256 stored) in an HttpOnly, SameSite=Strict cookie; idle (30 min) and absolute
+  (12 h) expiry; lockout after 5 failures; per-IP login rate limit; one generic login error
+  with the real reason in the audit log; CSRF header required on state-changing requests;
+  production refuses placeholder database passwords.
+- **Authorisation**: `admin` and `analyst` roles enforced server-side on every route; an
+  authorisation-matrix test covers every API route (enumerated from OpenAPI).
+- **Users**: admin API (create, change role, deactivate, reset password — revokes sessions)
+  with guards against locking out the last admin; `python -m app.cli create-user`.
+- **Models**: CLI-only registration from `MODEL_ARTIFACTS_DIR` with the trusted SHA-256,
+  metrics and validation-chosen alert threshold; synthetic models refused unless explicitly
+  allowed; audited activation; models load only through the hash-checked `Predictor`.
+- **Dataset analysis**: streamed uploads (size, type and content checks; server-generated
+  names), background worker (one run at a time, per-chunk progress, interrupted runs marked
+  failed, starts even if the database is down), alerts via the attack-score threshold.
+- **Alerts and investigation**: filters (IP, CIDR, category, severity, status, source, time),
+  sorting, pagination, detail with evidence, audited status changes; IP and subnet summaries
+  from stored data only; dashboard summary; detailed component health.
+- **Incidents**: always created as `new`; fixed transition map; assignment; idempotent alert
+  linking; append-only notes; per-incident history.
+- **Firewall requests** (no execution until Phase 7): target validation, protected networks,
+  limits, two-person approval with typed confirmation, reject, idempotent revoke,
+  `applied=false` in every response.
+- **Audit log**: admin-only, read-only API with filters.
+- `sentinel-ml threshold` (validation-only threshold and single-threaded latency); ML files
+  written as UTF-8 (the Windows-written reports were re-encoded); `sentinel_ml.testing`
+  shared by both test suites.
+- Docker image installs `sentinel_ml`; Compose mounts `ml/artifacts` read-only; CI installs
+  the ML package for the backend.
+
+## Phase 3 — test results (actually run on 2026-10-28)
+
+| Check | Command / method | Result |
+|---|---|---|
+| Backend tests (unit + PostgreSQL integration) | `TEST_DATABASE_URL=… pytest` | **155 passed** |
+| Backend without a test database | `pytest` | 38 passed, 117 skipped (integration needs PostgreSQL) |
+| Backend lint / format / types | `ruff check`, `ruff format --check`, `mypy` (strict) | Passed; 62 files |
+| Migrations | upgrade → `alembic check` → downgrade → upgrade | Clean; no drift |
+| Audit immutability | UPDATE / DELETE / TRUNCATE as the app's DB user, and via the ORM in tests | All rejected by the trigger |
+| ML tests | `cd ml && pytest` | **139 passed** |
+| Frontend | `npm test`, typecheck, lint, build | 22 passed; clean |
+| GitHub CI run on `d7c4b9c` | backend, ml, frontend, compose | All succeeded |
+| Docker stack, end to end | real images; CLI user creation and model registration; API calls | See below |
+
+Docker end-to-end check (synthetic model and data, registered with `--allow-synthetic`; the
+artifact was deleted afterwards): upload without CSRF header refused; 400-row upload analysed
+by the background worker → 395 valid, 5 rejected (`invalid_value:sbytes`), 261 alerts; alert
+listing, dashboard and component health consistent; self-approval refused, second-admin
+approval recorded with `applied=false`; analyst refused on the audit log; logout invalidated
+the session; database refused `UPDATE audit_logs`. The alert count reflects the synthetic
+model and says nothing about real detection performance.
+
+### Phase 3 acceptance
+
+- [x] Migrations apply on a clean database and downgrade cleanly.
+- [x] Authorisation matrix over every endpoint × {anonymous, analyst, admin}.
+- [x] Alert → incident → notes → status change persists and is audited with actor and action.
+- [x] Audit records cannot be modified through any endpoint; the trigger rejects UPDATE/DELETE.
+- [x] No model alert creates an incident (tested: analysis runs create none; incidents start
+  `new` and the create schema has no status field).
+- [x] The ML service is used without duplicating preprocessing (backend imports `sentinel_ml`).
+
+### Defects found and fixed during Phase 3
+
+1. Reports written on Windows were not valid UTF-8 (locale encoding); all ML file I/O now
+   names UTF-8, an AST test enforces it, and the six reports were re-encoded.
+2. A non-IP client address (e.g. a Unix socket) crashed login when stored in an `INET`
+   column; client addresses are now validated.
+3. Count queries whose filter referenced no table had no `FROM` clause and counted one phantom
+   row on an empty database; every count names its table.
+4. The analysis worker queried the database during startup, so a down database would stop
+   the API starting; recovery now runs inside the worker thread with retries.
+5. A deprecated SQLAlchemy call (`Row.tuple()`) was caught by the test warning filter.
+6. JSONB columns had only Python-side defaults; database defaults added so plain SQL inserts
+   are valid.
 
 ## Phase 2 — completed work
 
@@ -207,10 +290,18 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Known issues / limitations
 
-- Login page is a placeholder; there is no authentication until Phase 3, so the API currently
-  exposes only health endpoints.
-- Rate limiting, sessions, CSP header, and refusal of placeholder secrets outside development
-  are Phase 3 items.
+- The dashboard UI does not yet use the Phase 3 API (Phase 4); the login page is still a
+  placeholder.
+- Rate limiting is in-memory and per process; it resets on restart (documented residual risk).
+- The application's database user owns the tables, so it could disable the audit trigger;
+  production hardening (a separate non-owner role) is planned for Phase 8.
+- Multipart parsing may spool an oversized upload to a temporary file before the streamed
+  size check rejects it; a `Content-Length` pre-check limits honest clients only.
+- The analysis worker is single-process; running several API worker processes is unsupported.
+- Recommendation rules (Phase 5), live ingest and WebSocket events (Phase 6), and firewall
+  execution (Phase 7) are not implemented; their endpoints and tables exist where planned.
+- The plan's "demo seed script" was replaced by `python -m app.cli create-user`.
+- A CSP header is not set yet (Phase 5 security review).
 - The frontend container runs the Vite dev server; a production static build is Phase 8.
 - Version choices: TypeScript is held at 6.0 because `typescript-eslint` 8.72 supports
   `<6.1`; React Router is held at 7.x (maintained) rather than 8.x to use a well-documented API.
@@ -220,9 +311,10 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Next steps
 
-1. Phase 3: backend models, auth, incidents, audit; integrate `Predictor` via an
-   `ml_service` that stores model hashes in `model_versions`.
-2. Phase 3: choose an alert threshold on the attack score from the **validation** split and
-   store it with the model version; re-measure single-threaded latency without re-scoring
-   the test set.
+1. On the team machine: `git pull`, then for each real model run
+   `sentinel-ml threshold artifacts/<dir> --target-fpr 0.05` (validation split only), commit
+   `ml/reports/*/threshold.*`, and register the `full` model with
+   `python -m app.cli register-model … --reports-dir ../ml/reports --activate`.
+2. Phase 4: build the dashboard pages on the Phase 3 API (login, alerts, investigation,
+   incidents, firewall approvals, audit, model evaluation, health).
 3. Phase 4/5: label low-reliability predicted categories in the UI and recommendations.
