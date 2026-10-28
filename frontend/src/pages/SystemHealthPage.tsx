@@ -18,6 +18,7 @@ const STATE_TONE = {
   pending: 'warning',
   unavailable: 'danger',
   unknown: 'neutral',
+  not_configured: 'neutral',
 } as const satisfies Record<ComponentState, string>
 
 export function SystemHealthPage() {

@@ -9,7 +9,7 @@ export interface ApiErrorBody {
   }
 }
 
-export type ComponentState = 'ok' | 'pending' | 'unavailable' | 'unknown'
+export type ComponentState = 'ok' | 'pending' | 'unavailable' | 'unknown' | 'not_configured'
 
 export interface ComponentStatus {
   status: ComponentState
