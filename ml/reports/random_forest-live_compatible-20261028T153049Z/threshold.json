@@ -1,0 +1,86 @@
+{
+  "model": {
+    "name": "random_forest-live_compatible",
+    "version": "20261028T153049Z",
+    "sha256": "7c7627729999f79b5df4039a3f1d3f19e36a1a63e84e2354e076650520c9cf9a"
+  },
+  "data_origin": "unsw-nb15",
+  "selected_on": "validation split of the training file (testing file not used)",
+  "validation_rows": 21509,
+  "validation_normal_rows": 10339,
+  "score": "attack_score = 1 - score(Normal); uncalibrated",
+  "target_fpr": 0.05,
+  "threshold": 0.8195833333333334,
+  "chosen": {
+    "target_fpr": 0.05,
+    "threshold": 0.8195833333333334,
+    "false_positive_rate": 0.04990811490472966,
+    "attack_recall": 0.9042972247090421,
+    "share_alerted": 0.49360732716537264
+  },
+  "operating_points": [
+    {
+      "target_fpr": 0.01,
+      "threshold": 0.9500000000000001,
+      "false_positive_rate": 0.009865557597446561,
+      "attack_recall": 0.7397493285586392,
+      "share_alerted": 0.3889069691756939
+    },
+    {
+      "target_fpr": 0.02,
+      "threshold": 0.9200000000000002,
+      "false_positive_rate": 0.019054067124480125,
+      "attack_recall": 0.8004476275738586,
+      "share_alerted": 0.4248454135478172
+    },
+    {
+      "target_fpr": 0.05,
+      "threshold": 0.8195833333333334,
+      "false_positive_rate": 0.04990811490472966,
+      "attack_recall": 0.9042972247090421,
+      "share_alerted": 0.49360732716537264
+    },
+    {
+      "target_fpr": 0.1,
+      "threshold": 0.6950000000000002,
+      "false_positive_rate": 0.09797852790405262,
+      "attack_recall": 0.9625783348254252,
+      "share_alerted": 0.5469803338137523
+    },
+    {
+      "target_fpr": 0.2,
+      "threshold": 0.2850000000000001,
+      "false_positive_rate": 0.1997291807718348,
+      "attack_recall": 0.9993733213965981,
+      "share_alerted": 0.6149983727741876
+    }
+  ],
+  "default_decision": {
+    "false_positive_rate": 0.1601702292291324,
+    "attack_recall": 0.9929274843330349,
+    "share_alerted": 0.5926356408945093
+  },
+  "latency_single_threaded": {
+    "single_record_calls": 200,
+    "single_record_median_ms": 48.090150055941194,
+    "single_record_p95_ms": 76.89989503705873,
+    "batch_size": 1000,
+    "batch_repeats": 5,
+    "batch_median_ms": 217.20439998898655,
+    "batch_per_record_us": 217.20439998898655,
+    "batch_throughput_records_per_s": 4603.958299420755
+  },
+  "environment": {
+    "python": "3.13.15",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 23 Model 160 Stepping 0, AuthenticAMD",
+    "cpu_count": "8"
+  },
+  "git_commit": "9f7f84fbd7abf38bfe22fed7bba26039661e662c",
+  "created_at": "2026-10-28T16:37:48.655715+00:00"
+}
