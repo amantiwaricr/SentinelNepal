@@ -189,6 +189,7 @@ All settings come from environment variables (see `.env.example`). Never commit 
 | `/health/ready` returns 503 with database `unavailable` | Check that `db` is running and `.env` credentials match; the API recovers automatically once the DB is back |
 | `address already in use` for 5173, 8000, or 5433 | Stop the other process, or change the host port in `docker-compose.yml` / `POSTGRES_HOST_PORT` |
 | `docker compose` says `Set POSTGRES_PASSWORD in .env` | Create `.env` from `.env.example` |
+| `npm error Exit handler never called!` or pip timeouts during `docker compose up --build` | A slow or unstable connection interrupted package downloads. Run the same command again: already-downloaded packages are cached, so each retry gets further. On very slow links, build one image at a time: `docker compose build backend`, then `docker compose build frontend`, then `docker compose up` |
 | `pip`/`npm` SSL errors during `docker build` on a network with TLS inspection | The build container does not trust the network's proxy CA; build on a network without TLS interception or ask the network administrator for the CA |
 
 ## Safety

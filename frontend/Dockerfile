@@ -6,8 +6,11 @@ WORKDIR /app
 RUN chown node:node /app
 USER node
 
-COPY --chown=node:node frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+COPY --chown=node:node frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+# The cache mount keeps downloaded packages between build attempts (it is not stored in the
+# image), so a retry after a network failure does not start from zero.
+RUN --mount=type=cache,target=/home/node/.npm,uid=1000,gid=1000 \
+    npm ci --no-audit --no-fund --prefer-offline
 
 COPY --chown=node:node frontend/ ./
 

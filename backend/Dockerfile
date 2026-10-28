@@ -4,7 +4,6 @@ FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
@@ -13,7 +12,10 @@ WORKDIR /app
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin sentinel
 
 COPY backend/requirements.txt ./
-RUN pip install -r requirements.txt
+# Retries/timeouts help on slow connections; the cache mount keeps downloaded wheels between
+# build attempts without storing them in the image.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --retries 10 --timeout 60 -r requirements.txt
 
 COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations
