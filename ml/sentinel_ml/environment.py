@@ -31,7 +31,11 @@ def environment_info() -> dict[str, str]:
 
 
 def git_commit(start: Path | None = None) -> str | None:
-    """Current commit, with '+dirty' if there are uncommitted changes; None outside Git."""
+    """Current commit, with '+dirty' if tracked files have uncommitted changes; None outside Git.
+
+    Untracked files (e.g. freshly generated reports) do not count: they cannot change the code
+    that produced a result.
+    """
     cwd = start or Path(__file__).resolve().parent
     try:
         commit = subprocess.run(
@@ -43,7 +47,7 @@ def git_commit(start: Path | None = None) -> str | None:
             timeout=10,
         ).stdout.strip()
         dirty = subprocess.run(
-            ["git", "status", "--porcelain"],  # noqa: S607
+            ["git", "status", "--porcelain", "--untracked-files=no"],  # noqa: S607
             cwd=cwd,
             capture_output=True,
             text=True,

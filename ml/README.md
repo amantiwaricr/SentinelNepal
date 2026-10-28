@@ -154,5 +154,10 @@ the synthetic marker file.
 - Some features (notably TTL-based ones) may act as shortcuts specific to the testbed; the
   `full_no_ttl` ablation measures how much the model depends on them.
 - Classes such as Worms and Analysis are rare; their per-class metrics are fragile.
+- `proto` has 133 distinct values in the training file, many of them rare IP protocols with
+  roughly 100–200 rows each. In this testbed such protocols may occur almost only in attack
+  traffic, so the model can learn them as a shortcut that does not generalise.
+- About 38.6% of training rows duplicate another row on the model's features; training
+  removes them, which changes the effective class balance (see each training report).
 - There is no brute-force class in UNSW-NB15; the model cannot predict one.
 - Global feature importance is not a per-record explanation.

@@ -85,13 +85,30 @@ the predictor reproduces the saved pipeline's predictions.
 2. Header detection required `dur`, so a file missing that column was misreported as an
    unrecognised layout; detection now uses the label columns, and the missing column is named.
 
-### Blocker
+### Real data profile (team machine, Windows, 2026-10-28)
 
-The development sandbox's network policy denies `research.unsw.edu.au` and
-`unsw-my.sharepoint.com`, so the official dataset could not be downloaded there. Unofficial
-mirrors were deliberately not used. Either allow those domains in the environment's network
-settings, or download the files on a team machine (see `ml/data/README.md`) and run the
-commands in `ml/README.md`.
+The official partitioned files were downloaded on a team member's machine (the development
+sandbox's network policy blocks the UNSW hosts) and profiled with `sentinel-ml profile`:
+
+| | `UNSW_NB15_training-set.csv` | `UNSW_NB15_testing-set.csv` |
+|---|---|---|
+| SHA-256 | `bec7dd5e…0648fa` | `734fe664…c0a559` |
+| Rows | 175 341 | 82 332 |
+| Columns | 45, exactly as expected | 45, exactly as expected |
+| Blank values / rejected rows | none / none | none / none |
+| Duplicate rows (model features + label) | 67 601 (38.6%) | 26 387 (32.0%) |
+| Normal / attack rows | 56 000 / 119 341 | 37 000 / 45 332 |
+| IP addresses or timestamps | none | none |
+
+Distinct test rows also present in the training file: 941. `proto` has 133 (train) / 131
+(test) distinct values, `service` 13, `state` 9 / 7 (incl. rare values such as `no`, `PAR`).
+Conclusion: the code's schema assumptions hold for these files; no schema change needed.
+Full report: `ml/reports/data_profile.md` (to be committed from the team machine).
+
+### Remaining for Phase 2
+
+Train `full`, `full_no_ttl`, and `live_compatible` on the real files, evaluate each once,
+commit the reports, and record the real metrics here.
 
 ## Phase 1 — completed work
 
