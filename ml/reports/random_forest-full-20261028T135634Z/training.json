@@ -1,0 +1,1025 @@
+{
+  "model": {
+    "name": "random_forest-full",
+    "version": "20261028T135634Z",
+    "sha256": "9ee6fef2710060741d4ed4d5e0cbf57fb94d8d4c6f7b3706d657435dc76f4889"
+  },
+  "data_origin": "unsw-nb15",
+  "feature_profile": "full",
+  "features": [
+    "dur",
+    "spkts",
+    "dpkts",
+    "sbytes",
+    "dbytes",
+    "sttl",
+    "dttl",
+    "sload",
+    "dload",
+    "sloss",
+    "dloss",
+    "sinpkt",
+    "dinpkt",
+    "sjit",
+    "djit",
+    "swin",
+    "dwin",
+    "tcprtt",
+    "synack",
+    "ackdat",
+    "smean",
+    "dmean",
+    "trans_depth",
+    "response_body_len",
+    "ct_srv_src",
+    "ct_state_ttl",
+    "ct_dst_ltm",
+    "ct_src_dport_ltm",
+    "ct_dst_sport_ltm",
+    "ct_dst_src_ltm",
+    "is_ftp_login",
+    "ct_ftp_cmd",
+    "ct_flw_http_mthd",
+    "ct_src_ltm",
+    "ct_srv_dst",
+    "is_sm_ips_ports",
+    "proto",
+    "service",
+    "state"
+  ],
+  "training_sources": [
+    {
+      "name": "UNSW_NB15_training-set.csv",
+      "sha256": "bec7dd5ec88dc2a0ccc7a07879d338395ed7421750f675fd0339e07dfe0648fa",
+      "size_bytes": 32293018
+    }
+  ],
+  "seed": 42,
+  "selection": {
+    "criterion": "validation macro-F1, ties broken by lower false-positive rate",
+    "validation_fraction": 0.2,
+    "rows_read": 175341,
+    "rows_rejected": 0,
+    "rejection_counts": {},
+    "duplicates_removed": 67601,
+    "train_rows": 86192,
+    "validation_rows": 21548,
+    "train_class_counts": {
+      "Normal": 41512,
+      "Exploits": 15875,
+      "Fuzzers": 12920,
+      "Reconnaissance": 6018,
+      "Generic": 3345,
+      "DoS": 3045,
+      "Analysis": 1275,
+      "Backdoor": 1228,
+      "Shellcode": 873,
+      "Worms": 101
+    },
+    "selected": "random_forest_balanced",
+    "candidates": [
+      {
+        "name": "logistic_regression",
+        "kind": "logistic_regression",
+        "class_weight": null,
+        "fit_seconds": 1216.5582549999235,
+        "warnings": [],
+        "validation": {
+          "records": 21548,
+          "per_class": {
+            "Normal": {
+              "precision": 0.934293059125964,
+              "recall": 0.8755058778184621,
+              "f1": 0.9039446848729046,
+              "support": 10378
+            },
+            "Analysis": {
+              "precision": 0.13688212927756654,
+              "recall": 0.11285266457680251,
+              "f1": 0.12371134020618557,
+              "support": 319
+            },
+            "Backdoor": {
+              "precision": 0.18181818181818182,
+              "recall": 0.07166123778501629,
+              "f1": 0.102803738317757,
+              "support": 307
+            },
+            "DoS": {
+              "precision": 0.11949685534591195,
+              "recall": 0.024967148488830485,
+              "f1": 0.041304347826086954,
+              "support": 761
+            },
+            "Exploits": {
+              "precision": 0.7226909413854352,
+              "recall": 0.8201058201058201,
+              "f1": 0.7683229080608993,
+              "support": 3969
+            },
+            "Fuzzers": {
+              "precision": 0.5428296438883542,
+              "recall": 0.698452012383901,
+              "f1": 0.6108854589764419,
+              "support": 3230
+            },
+            "Generic": {
+              "precision": 0.9474431818181818,
+              "recall": 0.7978468899521531,
+              "f1": 0.8662337662337662,
+              "support": 836
+            },
+            "Reconnaissance": {
+              "precision": 0.5213770127706829,
+              "recall": 0.6243351063829787,
+              "f1": 0.5682299546142209,
+              "support": 1504
+            },
+            "Shellcode": {
+              "precision": 0.43478260869565216,
+              "recall": 0.22935779816513763,
+              "f1": 0.3003003003003003,
+              "support": 218
+            },
+            "Worms": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "support": 26
+            }
+          },
+          "macro_f1": 0.4285736499408562,
+          "weighted_f1": 0.7495119553490013,
+          "accuracy": 0.7578429552626694,
+          "binary": {
+            "true_positives": 10531,
+            "false_positives": 1292,
+            "true_negatives": 9086,
+            "false_negatives": 639,
+            "precision": 0.8907214750909245,
+            "recall": 0.9427931960608773,
+            "f1": 0.9160179184969338,
+            "false_positive_rate": 0.12449412218153787,
+            "false_negative_rate": 0.05720680393912265
+          },
+          "confusion_matrix": {
+            "labels": [
+              "Normal",
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
+            "matrix": [
+              [
+                9086,
+                11,
+                0,
+                1,
+                162,
+                1015,
+                0,
+                97,
+                6,
+                0
+              ],
+              [
+                40,
+                36,
+                18,
+                26,
+                78,
+                72,
+                0,
+                49,
+                0,
+                0
+              ],
+              [
+                6,
+                40,
+                22,
+                18,
+                73,
+                76,
+                1,
+                70,
+                1,
+                0
+              ],
+              [
+                27,
+                36,
+                16,
+                19,
+                411,
+                142,
+                8,
+                93,
+                9,
+                0
+              ],
+              [
+                60,
+                42,
+                23,
+                41,
+                3255,
+                302,
+                15,
+                191,
+                40,
+                0
+              ],
+              [
+                479,
+                40,
+                25,
+                19,
+                157,
+                2256,
+                2,
+                244,
+                8,
+                0
+              ],
+              [
+                6,
+                14,
+                2,
+                7,
+                86,
+                36,
+                667,
+                17,
+                1,
+                0
+              ],
+              [
+                16,
+                44,
+                15,
+                28,
+                260,
+                195,
+                7,
+                939,
+                0,
+                0
+              ],
+              [
+                5,
+                0,
+                0,
+                0,
+                5,
+                59,
+                0,
+                99,
+                50,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                17,
+                3,
+                4,
+                2,
+                0,
+                0
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "name": "logistic_regression_balanced",
+        "kind": "logistic_regression",
+        "class_weight": "balanced",
+        "fit_seconds": 2105.3801380000077,
+        "warnings": [],
+        "validation": {
+          "records": 21548,
+          "per_class": {
+            "Normal": {
+              "precision": 0.9966273187183811,
+              "recall": 0.7972634418963191,
+              "f1": 0.8858672376873662,
+              "support": 10378
+            },
+            "Analysis": {
+              "precision": 0.15732546705998032,
+              "recall": 0.5015673981191222,
+              "f1": 0.23952095808383234,
+              "support": 319
+            },
+            "Backdoor": {
+              "precision": 0.15401069518716579,
+              "recall": 0.46905537459283386,
+              "f1": 0.2318840579710145,
+              "support": 307
+            },
+            "DoS": {
+              "precision": 0.20606060606060606,
+              "recall": 0.17871222076215507,
+              "f1": 0.19141449683321604,
+              "support": 761
+            },
+            "Exploits": {
+              "precision": 0.8499364137346334,
+              "recall": 0.5051650289745527,
+              "f1": 0.6336915297092288,
+              "support": 3969
+            },
+            "Fuzzers": {
+              "precision": 0.5640658554044381,
+              "recall": 0.7318885448916409,
+              "f1": 0.6371109014957553,
+              "support": 3230
+            },
+            "Generic": {
+              "precision": 0.9165526675786594,
+              "recall": 0.8014354066985646,
+              "f1": 0.8551372048500319,
+              "support": 836
+            },
+            "Reconnaissance": {
+              "precision": 0.603071948261924,
+              "recall": 0.49601063829787234,
+              "f1": 0.5443268879970814,
+              "support": 1504
+            },
+            "Shellcode": {
+              "precision": 0.18413597733711048,
+              "recall": 0.8944954128440367,
+              "f1": 0.3054032889584965,
+              "support": 218
+            },
+            "Worms": {
+              "precision": 0.01892147587511826,
+              "recall": 0.7692307692307693,
+              "f1": 0.03693444136657433,
+              "support": 26
+            }
+          },
+          "macro_f1": 0.45612910049525973,
+          "weighted_f1": 0.72679054505074,
+          "accuracy": 0.6828475960646,
+          "binary": {
+            "true_positives": 11142,
+            "false_positives": 2104,
+            "true_negatives": 8274,
+            "false_negatives": 28,
+            "precision": 0.8411595953495394,
+            "recall": 0.9974932855863922,
+            "f1": 0.9126802096985583,
+            "false_positive_rate": 0.20273655810368085,
+            "false_negative_rate": 0.002506714413607878
+          },
+          "confusion_matrix": {
+            "labels": [
+              "Normal",
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
+            "matrix": [
+              [
+                8274,
+                137,
+                19,
+                30,
+                80,
+                1537,
+                4,
+                140,
+                143,
+                14
+              ],
+              [
+                0,
+                160,
+                148,
+                6,
+                3,
+                0,
+                1,
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                123,
+                144,
+                10,
+                4,
+                5,
+                4,
+                9,
+                2,
+                6
+              ],
+              [
+                7,
+                120,
+                131,
+                136,
+                178,
+                53,
+                10,
+                23,
+                57,
+                46
+              ],
+              [
+                16,
+                216,
+                198,
+                424,
+                2005,
+                170,
+                32,
+                61,
+                189,
+                658
+              ],
+              [
+                3,
+                118,
+                137,
+                23,
+                48,
+                2364,
+                4,
+                239,
+                232,
+                62
+              ],
+              [
+                1,
+                33,
+                27,
+                21,
+                39,
+                9,
+                670,
+                4,
+                17,
+                15
+              ],
+              [
+                0,
+                110,
+                131,
+                10,
+                0,
+                46,
+                6,
+                746,
+                220,
+                235
+              ],
+              [
+                1,
+                0,
+                0,
+                0,
+                0,
+                7,
+                0,
+                14,
+                195,
+                1
+              ],
+              [
+                0,
+                0,
+                0,
+                0,
+                2,
+                0,
+                0,
+                0,
+                4,
+                20
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "name": "random_forest",
+        "kind": "random_forest",
+        "class_weight": null,
+        "fit_seconds": 26.44540450000204,
+        "warnings": [],
+        "validation": {
+          "records": 21548,
+          "per_class": {
+            "Normal": {
+              "precision": 0.9393134651322907,
+              "recall": 0.9202158412025438,
+              "f1": 0.929666585543928,
+              "support": 10378
+            },
+            "Analysis": {
+              "precision": 0.06550218340611354,
+              "recall": 0.047021943573667714,
+              "f1": 0.05474452554744526,
+              "support": 319
+            },
+            "Backdoor": {
+              "precision": 0.1694915254237288,
+              "recall": 0.16286644951140064,
+              "f1": 0.16611295681063123,
+              "support": 307
+            },
+            "DoS": {
+              "precision": 0.32964601769911506,
+              "recall": 0.19579500657030224,
+              "f1": 0.24567188788128608,
+              "support": 761
+            },
+            "Exploits": {
+              "precision": 0.7777526053466244,
+              "recall": 0.8649533887629126,
+              "f1": 0.81903853035906,
+              "support": 3969
+            },
+            "Fuzzers": {
+              "precision": 0.6765285996055227,
+              "recall": 0.743343653250774,
+              "f1": 0.7083640654963859,
+              "support": 3230
+            },
+            "Generic": {
+              "precision": 0.9115281501340483,
+              "recall": 0.8133971291866029,
+              "f1": 0.8596713021491783,
+              "support": 836
+            },
+            "Reconnaissance": {
+              "precision": 0.7474472430224642,
+              "recall": 0.7300531914893617,
+              "f1": 0.7386478304742684,
+              "support": 1504
+            },
+            "Shellcode": {
+              "precision": 0.6181818181818182,
+              "recall": 0.6238532110091743,
+              "f1": 0.6210045662100456,
+              "support": 218
+            },
+            "Worms": {
+              "precision": 0.5714285714285714,
+              "recall": 0.15384615384615385,
+              "f1": 0.24242424242424243,
+              "support": 26
+            }
+          },
+          "macro_f1": 0.538534649289647,
+          "weighted_f1": 0.8081292808037087,
+          "accuracy": 0.8128828661592723,
+          "binary": {
+            "true_positives": 10553,
+            "false_positives": 828,
+            "true_negatives": 9550,
+            "false_negatives": 617,
+            "precision": 0.9272471663298479,
+            "recall": 0.944762757385855,
+            "f1": 0.9359230189348587,
+            "false_positive_rate": 0.07978415879745615,
+            "false_negative_rate": 0.05523724261414503
+          },
+          "confusion_matrix": {
+            "labels": [
+              "Normal",
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
+            "matrix": [
+              [
+                9550,
+                7,
+                0,
+                2,
+                78,
+                720,
+                0,
+                13,
+                8,
+                0
+              ],
+              [
+                47,
+                15,
+                48,
+                43,
+                60,
+                48,
+                11,
+                47,
+                0,
+                0
+              ],
+              [
+                0,
+                41,
+                50,
+                46,
+                75,
+                49,
+                6,
+                38,
+                2,
+                0
+              ],
+              [
+                12,
+                34,
+                42,
+                149,
+                347,
+                79,
+                18,
+                61,
+                18,
+                1
+              ],
+              [
+                38,
+                35,
+                45,
+                84,
+                3433,
+                136,
+                13,
+                147,
+                37,
+                1
+              ],
+              [
+                506,
+                47,
+                42,
+                53,
+                101,
+                2401,
+                9,
+                55,
+                15,
+                1
+              ],
+              [
+                4,
+                8,
+                11,
+                17,
+                80,
+                26,
+                680,
+                6,
+                4,
+                0
+              ],
+              [
+                3,
+                42,
+                57,
+                53,
+                191,
+                51,
+                9,
+                1098,
+                0,
+                0
+              ],
+              [
+                7,
+                0,
+                0,
+                4,
+                30,
+                37,
+                0,
+                4,
+                136,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                1,
+                19,
+                2,
+                0,
+                0,
+                0,
+                4
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "name": "random_forest_balanced",
+        "kind": "random_forest",
+        "class_weight": "balanced",
+        "fit_seconds": 20.325412799953483,
+        "warnings": [],
+        "validation": {
+          "records": 21548,
+          "per_class": {
+            "Normal": {
+              "precision": 0.993666513127591,
+              "recall": 0.8314704181923299,
+              "f1": 0.9053614521036617,
+              "support": 10378
+            },
+            "Analysis": {
+              "precision": 0.08891928864569083,
+              "recall": 0.20376175548589343,
+              "f1": 0.12380952380952381,
+              "support": 319
+            },
+            "Backdoor": {
+              "precision": 0.07228915662650602,
+              "recall": 0.19543973941368079,
+              "f1": 0.10554089709762533,
+              "support": 307
+            },
+            "DoS": {
+              "precision": 0.4058721934369603,
+              "recall": 0.3088042049934297,
+              "f1": 0.35074626865671643,
+              "support": 761
+            },
+            "Exploits": {
+              "precision": 0.8672972972972973,
+              "recall": 0.8085159989921895,
+              "f1": 0.8368757334724214,
+              "support": 3969
+            },
+            "Fuzzers": {
+              "precision": 0.6323627472771727,
+              "recall": 0.8808049535603715,
+              "f1": 0.7361883814206236,
+              "support": 3230
+            },
+            "Generic": {
+              "precision": 0.935656836461126,
+              "recall": 0.8349282296650717,
+              "f1": 0.8824273072060683,
+              "support": 836
+            },
+            "Reconnaissance": {
+              "precision": 0.8067632850241546,
+              "recall": 0.7772606382978723,
+              "f1": 0.7917372163901117,
+              "support": 1504
+            },
+            "Shellcode": {
+              "precision": 0.5278688524590164,
+              "recall": 0.7385321100917431,
+              "f1": 0.615678776290631,
+              "support": 218
+            },
+            "Worms": {
+              "precision": 0.6,
+              "recall": 0.5769230769230769,
+              "f1": 0.5882352941176471,
+              "support": 26
+            }
+          },
+          "macro_f1": 0.5936600850565029,
+          "weighted_f1": 0.812701768385829,
+          "accuracy": 0.7929274178578058,
+          "binary": {
+            "true_positives": 11115,
+            "false_positives": 1749,
+            "true_negatives": 8629,
+            "false_negatives": 55,
+            "precision": 0.8640391791044776,
+            "recall": 0.9950760966875559,
+            "f1": 0.9249396688025298,
+            "false_positive_rate": 0.16852958180767008,
+            "false_negative_rate": 0.004923903312444047
+          },
+          "confusion_matrix": {
+            "labels": [
+              "Normal",
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
+            "matrix": [
+              [
+                8629,
+                124,
+                4,
+                13,
+                99,
+                1474,
+                2,
+                19,
+                13,
+                1
+              ],
+              [
+                3,
+                65,
+                162,
+                68,
+                9,
+                2,
+                2,
+                8,
+                0,
+                0
+              ],
+              [
+                0,
+                164,
+                60,
+                57,
+                7,
+                3,
+                3,
+                10,
+                3,
+                0
+              ],
+              [
+                1,
+                84,
+                135,
+                235,
+                213,
+                31,
+                13,
+                28,
+                20,
+                1
+              ],
+              [
+                4,
+                95,
+                145,
+                128,
+                3209,
+                94,
+                17,
+                202,
+                68,
+                7
+              ],
+              [
+                46,
+                95,
+                141,
+                29,
+                27,
+                2845,
+                6,
+                7,
+                33,
+                1
+              ],
+              [
+                0,
+                15,
+                38,
+                19,
+                48,
+                11,
+                698,
+                1,
+                6,
+                0
+              ],
+              [
+                0,
+                89,
+                145,
+                22,
+                73,
+                4,
+                2,
+                1169,
+                0,
+                0
+              ],
+              [
+                1,
+                0,
+                0,
+                7,
+                8,
+                33,
+                3,
+                5,
+                161,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                1,
+                7,
+                2,
+                0,
+                0,
+                1,
+                15
+              ]
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "feature_importance": {
+    "sbytes": 0.0952687559658454,
+    "smean": 0.08459141707567736,
+    "service": 0.062396108703356365,
+    "sload": 0.046248012130161345,
+    "ct_dst_src_ltm": 0.042303539473047304,
+    "ct_srv_dst": 0.04066451816166379,
+    "proto": 0.04051515849581195,
+    "sttl": 0.03779335456542231,
+    "dbytes": 0.034669846336719906,
+    "dur": 0.03372122595736044,
+    "ct_srv_src": 0.03355130408789333,
+    "dmean": 0.03303636984279945,
+    "sinpkt": 0.03166580107381,
+    "dload": 0.03159998407251672,
+    "sjit": 0.025370811626284608,
+    "synack": 0.024903601454708067,
+    "dinpkt": 0.024602365931797793,
+    "tcprtt": 0.022355770491501392,
+    "djit": 0.02203339571529528,
+    "ackdat": 0.02141129251586479,
+    "dpkts": 0.020413219411679617,
+    "ct_state_ttl": 0.019782645302760967,
+    "ct_src_ltm": 0.018450511657828152,
+    "dloss": 0.0178585335046789,
+    "sloss": 0.017366423003087463,
+    "ct_dst_sport_ltm": 0.016148669286044044,
+    "spkts": 0.015299559701651644,
+    "ct_dst_ltm": 0.015117816976806088,
+    "ct_src_dport_ltm": 0.014590050230803349,
+    "dttl": 0.012099528030674902,
+    "trans_depth": 0.011221896978599696,
+    "response_body_len": 0.01066576791618406,
+    "ct_flw_http_mthd": 0.010511750712565071,
+    "state": 0.007091174536864193,
+    "dwin": 0.002262907845481671,
+    "swin": 0.0016200259829111602,
+    "ct_ftp_cmd": 0.000317557347531154,
+    "is_ftp_login": 0.00025277521038024535,
+    "is_sm_ips_ports": 0.00022655268593000389
+  },
+  "environment": {
+    "python": "3.13.15",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 23 Model 160 Stepping 0, AuthenticAMD",
+    "cpu_count": "8"
+  },
+  "git_commit": "d702fceb41d306b9ca380fd07b60f41ac9e6cdbb",
+  "created_at": "2026-10-28T13:56:35.377238+00:00"
+}
