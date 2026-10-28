@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -55,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("feature-table", help="Print the dataset-to-Zeek feature mapping table")
 
     args = parser.parse_args(argv)
+    # Progress goes to stderr so long runs never look stuck; results stay on stdout.
+    # (No-op when logging is already configured, e.g. under pytest.)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     # Imported lazily so `feature-table` and `--help` stay fast.
     if args.command == "profile":
         from sentinel_ml.features.profile import write_profile

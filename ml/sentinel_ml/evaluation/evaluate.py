@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from sentinel_ml.evaluation.report import render_evaluation_markdown
 from sentinel_ml.features.dataset import LoadedDataset, find_file, load_files
 from sentinel_ml.schema import CLASS_LABELS, NORMAL, TEST_FILE, TRAIN_FILE
 
+logger = logging.getLogger(__name__)
+
 
 def _row_keys(dataset: LoadedDataset, features: list[str]) -> pd.Series:
     frame = dataset.features[features].assign(_label=dataset.labels.to_numpy())
@@ -34,11 +37,13 @@ def evaluate_model(
     *,
     latency_calls: int = 200,
 ) -> Path:
+    logger.info("Loading model %s", artifact_dir.name)
     manifest = load_manifest(artifact_dir)
     # Locally, the hash written by training is the trusted reference; the backend instead uses
     # the hash stored in its database.
     pipeline = load_pipeline(artifact_dir, manifest.model_sha256)
 
+    logger.info("Loading training file (to verify it and measure train/test overlap)")
     train = load_files([find_file(data_dir, TRAIN_FILE)], data_dir=data_dir)
     trained_on = {s["name"]: s["sha256"] for s in manifest.training_sources}
     for source in train.sources:
@@ -47,6 +52,7 @@ def evaluate_model(
                 f"{source.name} in {data_dir} differs from the file this model was trained on"
             )
 
+    logger.info("Loading testing file")
     test = load_files([find_file(data_dir, TEST_FILE)], data_dir=data_dir)
     if test.origin != manifest.data_origin:
         raise ArtifactError(
@@ -57,6 +63,7 @@ def evaluate_model(
     features = manifest.features
     x_test = test.features[features]
     y_test = test.labels.tolist()
+    logger.info("Predicting %d test rows", len(x_test))
     predictions = pipeline.predict(x_test).tolist()
     classes = [str(c) for c in pipeline.classes_]
     probabilities = pipeline.predict_proba(x_test)
@@ -65,6 +72,7 @@ def evaluate_model(
     unique_true = [y for y, dup in zip(y_test, overlap, strict=True) if not dup]
     unique_pred = [p for p, dup in zip(predictions, overlap, strict=True) if not dup]
 
+    logger.info("Measuring latency and computing metrics")
     payload: dict[str, Any] = {
         "model": {
             "name": manifest.name,
@@ -91,6 +99,7 @@ def evaluate_model(
         "git_commit": git_commit(),
     }
 
+    logger.info("Writing reports")
     report_dir = reports_dir / artifact_dir.name
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "evaluation.json").write_text(json.dumps(payload, indent=2) + "\n")

@@ -7,6 +7,7 @@ The official testing file is never read here; it is used once, afterwards, by
 from __future__ import annotations
 
 import json
+import logging
 import time
 import warnings
 from dataclasses import dataclass
@@ -30,6 +31,8 @@ from sentinel_ml.preprocessing.pipeline import (
 from sentinel_ml.schema import CLASS_LABELS, FEATURE_SCHEMA_VERSION, TRAIN_FILE, get_profile
 
 DEFAULT_SEED = 42
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -82,7 +85,9 @@ def train_model(
         raise ValueError("At least one candidate model is required")
     profile = get_profile(profile_name)
     train_path = find_file(data_dir, TRAIN_FILE)
+    logger.info("Loading %s (profile %r)", train_path.name, profile.name)
     dataset = load_files([train_path], data_dir=data_dir)
+    logger.info("Read %d rows; %d rejected by validation", dataset.rows_read, dataset.rows_rejected)
 
     features = dataset.features[list(profile.features)]
     labels = dataset.labels
@@ -102,9 +107,16 @@ def train_model(
         features, labels, test_size=validation_fraction, stratify=labels, random_state=seed
     )
 
+    logger.info(
+        "Removed %d duplicate rows; %d train / %d validation rows",
+        int(duplicated.sum()),
+        len(x_train),
+        len(x_val),
+    )
     results: list[dict[str, Any]] = []
     best: tuple[dict[str, Any], Pipeline] | None = None
-    for spec in candidates:
+    for number, spec in enumerate(candidates, start=1):
+        logger.info("Fitting candidate %d/%d: %s ...", number, len(candidates), spec.name)
         pipeline = build_pipeline(
             profile,
             spec.kind,
@@ -120,17 +132,22 @@ def train_model(
             pipeline.fit(x_train, y_train)
         fit_seconds = time.perf_counter() - started
         predictions = pipeline.predict(x_val)
-        result = {
+        validation = classification_metrics(y_val.tolist(), predictions.tolist(), CLASS_LABELS)
+        result: dict[str, Any] = {
             "name": spec.name,
             "kind": spec.kind,
             "class_weight": spec.class_weight,
             "fit_seconds": fit_seconds,
             "warnings": sorted({f"{w.category.__name__}: {w.message}" for w in caught}),
-            "validation": classification_metrics(
-                y_val.tolist(), predictions.tolist(), CLASS_LABELS
-            ),
+            "validation": validation,
         }
         results.append(result)
+        logger.info(
+            "  %s done in %.1f s; validation macro-F1 %.4f",
+            spec.name,
+            fit_seconds,
+            validation["macro_f1"],
+        )
         # Keep only the best fitted pipeline in memory; forests can be large.
         if best is None or _selection_key(result) > _selection_key(best[0]):
             best = (result, pipeline)
@@ -174,6 +191,7 @@ def train_model(
             "The official testing file was not used for training or model selection.",
         ],
     )
+    logger.info("Selected %s; saving artifact", selected["name"])
     artifact_dir = save_artifact(pipeline, manifest, artifacts_dir)
 
     report_dir = reports_dir / artifact_dir.name

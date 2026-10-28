@@ -7,6 +7,7 @@ normalised), validation rejections, duplicates, train/test overlap, and IP avail
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,8 @@ from sentinel_ml.schema import (
 )
 
 TOP_VALUES = 25
+
+logger = logging.getLogger(__name__)
 
 
 def _profile_file(path: Path, data_dir: Path) -> tuple[dict[str, Any], np.ndarray]:
@@ -128,6 +131,7 @@ def profile_dataset(data_dir: Path) -> dict[str, Any]:
     files = []
     unique_hashes: dict[str, np.ndarray] = {}
     for path in present:
+        logger.info("Profiling %s", path.name)
         profile, hashes = _profile_file(path, data_dir)
         files.append(profile)
         unique_hashes[path.name] = hashes

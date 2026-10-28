@@ -75,3 +75,28 @@ def test_profile_without_data_points_to_instructions(tmp_path: Path) -> None:
 
     with pytest.raises(DatasetError, match=r"ml/data/README.md"):
         main(["profile", "--data-dir", str(tmp_path), "--reports-dir", str(tmp_path)])
+
+
+def test_training_reports_progress(
+    synthetic_data_dir: Path, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level("INFO")
+    main(
+        [
+            "train",
+            "--data-dir",
+            str(synthetic_data_dir),
+            "--artifacts-dir",
+            str(tmp_path / "a"),
+            "--reports-dir",
+            str(tmp_path / "r"),
+            "--rf-estimators",
+            "5",
+            "--n-jobs",
+            "1",
+        ]
+    )
+    messages = [r.getMessage() for r in caplog.records]
+    assert any(m.startswith("Fitting candidate 1/4") for m in messages)
+    assert any("validation macro-F1" in m for m in messages)
+    assert any(m.startswith("Selected ") for m in messages)
