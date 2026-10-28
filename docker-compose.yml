@@ -15,6 +15,8 @@ x-backend-env: &backend-env
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   LOG_FORMAT: ${LOG_FORMAT:-json}
+  # Trained models from ml/artifacts are mounted read-only (see volumes below).
+  MODEL_ARTIFACTS_DIR: /models
 
 x-backend-build: &backend-build
   context: .
@@ -53,6 +55,9 @@ services:
     build: *backend-build
     image: sentinelnepal-backend:dev
     environment: *backend-env
+    volumes:
+      - ./ml/artifacts:/models:ro
+      - uploads:/srv/backend/uploads
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -78,3 +83,4 @@ services:
 
 volumes:
   db-data:
+  uploads:
