@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
-from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
+from app.api.deps import AppSettings
+from app.core.config import APP_NAME, APP_VERSION
 from app.db.session import get_engine
 from app.schemas.health import LivenessOut, ReadinessOut
 from app.services.health import check_database
@@ -24,7 +25,7 @@ def live() -> LivenessOut:
     responses={503: {"model": ReadinessOut, "description": "A required dependency is not ready"}},
 )
 def ready(
-    settings: Annotated[Settings, Depends(get_settings)],
+    settings: AppSettings,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> JSONResponse:
     """The API can serve requests: database reachable and schema at the latest migration."""

@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 
-from app.core.config import get_settings
 from app.db.session import get_engine
 from app.main import create_app
 from tests.conftest import make_settings
@@ -21,7 +20,6 @@ def test_ready_reports_unreachable_database_without_leaking_details() -> None:
     app = create_app(settings)
     unreachable = create_engine(settings.sqlalchemy_url, connect_args={"connect_timeout": 2})
     app.dependency_overrides[get_engine] = lambda: unreachable
-    app.dependency_overrides[get_settings] = lambda: settings
 
     with TestClient(app) as client:
         response = client.get("/api/v1/health/ready")

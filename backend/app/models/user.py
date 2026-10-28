@@ -6,14 +6,13 @@ from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Integer, 
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-
-USER_ROLES = ("admin", "analyst")
+from app.models.enums import USER_ROLES, sql_in
 
 
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (
-        CheckConstraint("role IN ('admin', 'analyst')", name="role_valid"),
+        CheckConstraint(sql_in("role", USER_ROLES), name="role_valid"),
         # Usernames are stored lower-cased so uniqueness is case-insensitive without citext.
         CheckConstraint("username = lower(username)", name="username_lowercase"),
     )

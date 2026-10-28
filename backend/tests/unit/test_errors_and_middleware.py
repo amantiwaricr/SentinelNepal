@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
@@ -50,7 +51,7 @@ def test_unknown_route_returns_not_found_envelope(client: TestClient) -> None:
 
 
 def test_wrong_method_returns_envelope(client: TestClient) -> None:
-    response = client.post("/api/v1/health/live")
+    response = client.post("/api/v1/health/live", headers={"X-Requested-With": "SentinelNepal"})
     assert response.status_code == 405
     _assert_envelope(response.json(), "method_not_allowed")
 
@@ -58,7 +59,9 @@ def test_wrong_method_returns_envelope(client: TestClient) -> None:
 def test_validation_error_lists_fields_without_echoing_input() -> None:
     with TestClient(_app_with_test_routes()) as client:
         response = client.post(
-            "/test/validate", json={"password": "s3cret-value", "count": "not-a-number"}
+            "/test/validate",
+            json={"password": "s3cret-value", "count": "not-a-number"},
+            headers={"X-Requested-With": "SentinelNepal"},
         )
     assert response.status_code == 422
     error = _assert_envelope(response.json(), "validation_error")
@@ -119,3 +122,32 @@ def test_cors_allows_configured_origin(client: TestClient) -> None:
 def test_cors_ignores_unknown_origin(client: TestClient) -> None:
     response = client.get("/api/v1/health/live", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
+def test_state_changing_api_requests_need_the_csrf_header(client: TestClient, method: str) -> None:
+    response = client.request(method.upper(), "/api/v1/auth/logout")
+    assert response.status_code == 403
+    _assert_envelope(response.json(), "csrf_check_failed")
+
+
+def test_csrf_header_must_have_the_exact_value(client: TestClient) -> None:
+    response = client.post("/api/v1/auth/logout", headers={"X-Requested-With": "XMLHttpRequest"})
+    assert response.status_code == 403
+
+
+def test_safe_methods_do_not_need_the_csrf_header(client: TestClient) -> None:
+    assert client.get("/api/v1/health/live").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [("10.0.0.5", "10.0.0.5"), ("2001:DB8::1", "2001:db8::1"), ("testclient", None), (None, None)],
+)
+def test_client_ip_only_returns_valid_addresses(host: str | None, expected: str | None) -> None:
+    from types import SimpleNamespace
+
+    from app.api.deps import client_ip
+
+    request = SimpleNamespace(client=SimpleNamespace(host=host) if host else None)
+    assert client_ip(request) == expected  # type: ignore[arg-type]

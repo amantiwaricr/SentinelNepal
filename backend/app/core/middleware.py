@@ -82,3 +82,39 @@ class RequestContextMiddleware:
                 elapsed_ms,
             )
             request_id_var.reset(token)
+
+
+CSRF_HEADER = b"x-requested-with"
+CSRF_HEADER_VALUE = b"SentinelNepal"
+UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+class CSRFHeaderMiddleware:
+    """Require ``X-Requested-With: SentinelNepal`` on state-changing API requests.
+
+    Browsers cannot add custom headers to cross-site form posts, and a cross-origin script
+    that tries triggers a CORS preflight, which fails for origins not on the allowlist.
+    Together with SameSite=Strict session cookies this blocks cross-site request forgery.
+    """
+
+    def __init__(self, app: ASGIApp, exempt_prefixes: tuple[str, ...] = ()) -> None:
+        self.app = app
+        self.exempt_prefixes = exempt_prefixes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] == "http"
+            and scope.get("method") in UNSAFE_METHODS
+            and str(scope.get("path", "")).startswith("/api/")
+            and not str(scope.get("path", "")).startswith(self.exempt_prefixes)
+        ):
+            value = dict(scope.get("headers", [])).get(CSRF_HEADER)
+            if value != CSRF_HEADER_VALUE:
+                response = error_response(
+                    403,
+                    "csrf_check_failed",
+                    "State-changing requests must include the X-Requested-With header",
+                )
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)

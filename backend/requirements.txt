@@ -6,3 +6,8 @@ pydantic-settings==2.16.1
 sqlalchemy==2.1.6
 alembic==1.20.1
 psycopg[binary]==3.3.6
+argon2-cffi==25.1.0
+python-multipart==0.0.32
+# Pinned dependencies of the shared ML package (feature handling lives only in ml/).
+# Install the package itself with: pip install -e ../ml   (Docker: pip install ./ml)
+-r ../ml/requirements.txt

@@ -29,6 +29,8 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 packages = ["app"]
+# The shared ML package is installed in editable mode, which mypy cannot follow.
+mypy_path = "../ml"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -37,3 +39,8 @@ markers = [
     "integration: needs a PostgreSQL database given by TEST_DATABASE_URL",
 ]
 filterwarnings = ["error::DeprecationWarning:app.*"]
+
+[[tool.mypy.overrides]]
+# scikit-learn and joblib (used through sentinel_ml) ship no type information.
+module = ["sklearn.*", "joblib.*"]
+ignore_missing_imports = true

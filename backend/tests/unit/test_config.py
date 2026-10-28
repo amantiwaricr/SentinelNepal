@@ -41,7 +41,8 @@ def test_cors_wildcard_rejected() -> None:
 
 
 def test_docs_disabled_in_production() -> None:
-    assert make_settings(environment="production").docs_enabled is False
+    production = make_settings(environment="production", postgres_password="a-real-secret-value")
+    assert production.docs_enabled is False
     assert make_settings(environment="development").docs_enabled is True
 
 
@@ -77,3 +78,30 @@ def test_environment_variables_override_env_file(
     monkeypatch.setenv("POSTGRES_HOST", "from-env")
     settings = Settings(_env_file=env_file)  # type: ignore[call-arg]
     assert settings.sqlalchemy_url.host == "from-env"
+
+
+@pytest.mark.parametrize("password", ["", "change-me"])
+def test_placeholder_database_password_refused_in_production(password: str) -> None:
+    with pytest.raises(ValidationError, match="placeholder"):
+        make_settings(environment="production", postgres_password=password)
+
+
+def test_placeholder_password_allowed_in_development() -> None:
+    assert make_settings(environment="development", postgres_password="change-me")
+
+
+def test_session_cookie_secure_by_default_only_in_production() -> None:
+    assert make_settings(environment="development").cookie_secure is False
+    prod = make_settings(environment="production", postgres_password="a-real-secret-value")
+    assert prod.cookie_secure is True
+    assert make_settings(environment="development", session_cookie_secure=True).cookie_secure
+
+
+def test_protected_networks_parsed_from_comma_separated_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FIREWALL_PROTECTED_NETWORKS", "10.10.0.0/24, 192.168.56.1")
+    assert Settings(_env_file=None).firewall_protected_networks == [  # type: ignore[call-arg]
+        "10.10.0.0/24",
+        "192.168.56.1",
+    ]

@@ -3,7 +3,6 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
-from app.core.config import get_settings
 from app.db.session import get_engine
 from app.main import create_app
 from tests.conftest import make_settings
@@ -13,7 +12,6 @@ def _client(engine: Engine) -> TestClient:
     settings = make_settings()
     app = create_app(settings)
     app.dependency_overrides[get_engine] = lambda: engine
-    app.dependency_overrides[get_settings] = lambda: settings
     return TestClient(app)
 
 
