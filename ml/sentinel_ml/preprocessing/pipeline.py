@@ -138,3 +138,16 @@ def _categorical_source(encoded_name: str, profile: FeatureProfile) -> str:
     if not matches:
         raise ValueError(f"Cannot map encoded column {encoded_name!r} to a feature")
     return max(matches, key=len)
+
+
+def configure_for_inference(pipeline: Pipeline) -> Pipeline:
+    """Predict on a single thread. Predictions are unchanged.
+
+    For the small batches an API serves, dispatching every tree to a thread pool costs more
+    than it saves, and scikit-learn's worker-thread machinery can emit spurious warnings
+    (seen on Windows). Training keeps using all cores.
+    """
+    model = pipeline.named_steps["model"]
+    if hasattr(model, "n_jobs"):
+        model.n_jobs = 1
+    return pipeline

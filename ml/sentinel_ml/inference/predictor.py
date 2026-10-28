@@ -18,6 +18,7 @@ from sklearn.pipeline import Pipeline
 from sentinel_ml.artifacts import ArtifactError, ModelManifest, load_manifest, load_pipeline
 from sentinel_ml.environment import library_versions
 from sentinel_ml.features.cleaning import clean_frame
+from sentinel_ml.preprocessing.pipeline import configure_for_inference
 from sentinel_ml.schema import (
     CATEGORICAL_FEATURES,
     CLASS_LABELS,
@@ -57,7 +58,7 @@ class PredictionBatch:
 
 class Predictor:
     def __init__(self, pipeline: Pipeline, manifest: ModelManifest) -> None:
-        self._pipeline = pipeline
+        self._pipeline = configure_for_inference(pipeline)
         self._manifest = manifest
         self._classes = [str(c) for c in pipeline.classes_]
         unexpected = set(self._classes) - set(CLASS_LABELS)

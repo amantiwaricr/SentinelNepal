@@ -20,6 +20,7 @@ from sentinel_ml.evaluation.metrics import (
 )
 from sentinel_ml.evaluation.report import render_evaluation_markdown
 from sentinel_ml.features.dataset import LoadedDataset, find_file, load_files
+from sentinel_ml.preprocessing.pipeline import configure_for_inference
 from sentinel_ml.schema import CLASS_LABELS, NORMAL, TEST_FILE, TRAIN_FILE
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ def evaluate_model(
     manifest = load_manifest(artifact_dir)
     # Locally, the hash written by training is the trusted reference; the backend instead uses
     # the hash stored in its database.
-    pipeline = load_pipeline(artifact_dir, manifest.model_sha256)
+    # Same single-threaded configuration as the Predictor, so latency reflects deployment.
+    pipeline = configure_for_inference(load_pipeline(artifact_dir, manifest.model_sha256))
 
     logger.info("Loading training file (to verify it and measure train/test overlap)")
     train = load_files([find_file(data_dir, TRAIN_FILE)], data_dir=data_dir)

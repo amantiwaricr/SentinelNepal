@@ -9,12 +9,12 @@ from __future__ import annotations
 import json
 import logging
 import time
-import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
@@ -60,6 +60,23 @@ class TrainingResult:
 def _simple_params(pipeline: Pipeline) -> dict[str, Any]:
     params = pipeline.named_steps["model"].get_params()
     return {k: v for k, v in params.items() if isinstance(v, str | int | float | bool | None)}
+
+
+def fit_warnings(pipeline: Pipeline) -> list[str]:
+    """Problems that qualify a fitted candidate's results, read from the fitted model.
+
+    Checked explicitly rather than by capturing Python warnings: ``warnings.catch_warnings``
+    is not thread-safe, and Random Forest fits run on many threads.
+    """
+    model = pipeline.named_steps["model"]
+    if hasattr(model, "n_iter_") and hasattr(model, "max_iter"):
+        iterations = int(np.max(model.n_iter_))
+        if iterations >= model.max_iter:
+            return [
+                f"ConvergenceWarning: solver stopped at max_iter={model.max_iter} "
+                "before converging; the baseline may be under-fitted"
+            ]
+    return []
 
 
 def _selection_key(result: dict[str, Any]) -> tuple[float, float]:
@@ -126,10 +143,7 @@ def train_model(
             n_jobs=n_jobs,
         )
         started = time.perf_counter()
-        # Record (rather than hide) warnings such as non-convergence: they qualify the result.
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            pipeline.fit(x_train, y_train)
+        pipeline.fit(x_train, y_train)
         fit_seconds = time.perf_counter() - started
         predictions = pipeline.predict(x_val)
         validation = classification_metrics(y_val.tolist(), predictions.tolist(), CLASS_LABELS)
@@ -138,7 +152,7 @@ def train_model(
             "kind": spec.kind,
             "class_weight": spec.class_weight,
             "fit_seconds": fit_seconds,
-            "warnings": sorted({f"{w.category.__name__}: {w.message}" for w in caught}),
+            "warnings": fit_warnings(pipeline),
             "validation": validation,
         }
         results.append(result)

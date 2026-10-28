@@ -122,6 +122,8 @@ for r in batch.rejected:
 - `load` refuses the artifact unless the model file's SHA-256 equals the trusted value
   (the backend will keep it in its database), the feature-schema version matches, and the
   installed scikit-learn version is the one it was trained with.
+- Loaded models predict on a single thread (identical predictions; faster for the small
+  batches an API serves). Evaluation uses the same setting, so its latency reflects this.
 - Malformed records are rejected individually with reasons; a missing *required column*
   in a DataFrame raises `SchemaError`. At most 10 000 records per call.
 - `global_feature_importance()` shows what the model relies on overall. It does not explain

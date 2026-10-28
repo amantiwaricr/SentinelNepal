@@ -175,3 +175,29 @@ def test_artifact_from_another_scikit_learn_version_is_refused(
     (copy / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ArtifactError, match="Retrain"):
         Predictor.load(copy, trained.manifest.model_sha256)
+
+
+def test_random_forest_predicts_single_threaded_with_identical_results(tmp_path: Path) -> None:
+    from sentinel_ml.training.train import CandidateSpec, train_model
+    from tests.synthetic import write_synthetic_partitioned
+
+    data = write_synthetic_partitioned(tmp_path / "data", train_rows=400, test_rows=60)
+    result = train_model(
+        data,
+        tmp_path / "a",
+        tmp_path / "r",
+        rf_estimators=20,
+        n_jobs=-1,
+        candidates=(CandidateSpec("random_forest", "random_forest", None),),
+    )
+    threaded = load_pipeline(result.artifact_dir, result.manifest.model_sha256)
+    assert threaded.named_steps["model"].n_jobs == -1
+    predictor = Predictor.load(result.artifact_dir, result.manifest.model_sha256)
+    assert predictor._pipeline.named_steps["model"].n_jobs == 1
+
+    frame = make_partitioned_frame(100, seed=21).astype(str)
+    cleaned = clean_frame(frame, predictor.features, require_labels=False).features
+    batch = predictor.predict_frame(frame)
+    expected = threaded.predict_proba(cleaned)
+    for prediction, row in zip(batch.predictions, expected, strict=True):
+        assert list(prediction.class_scores.values()) == pytest.approx(row.tolist())
