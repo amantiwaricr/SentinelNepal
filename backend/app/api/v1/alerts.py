@@ -10,7 +10,6 @@ from app.core.errors import AppError
 from app.models.alert import Alert
 from app.models.incident import Incident, IncidentAlert
 from app.models.model_version import ModelVersion
-from app.models.recommendation import Recommendation
 from app.schemas.common import (
     AlertSource,
     AlertStatus,
@@ -30,6 +29,7 @@ from app.schemas.ops import (
 )
 from app.services import alerts
 from app.services.investigation import in_network, parse_ip, parse_network
+from app.services.recommendations.engine import ensure_for_alert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -101,11 +101,7 @@ def get_alert(alert_id: int, _: AnalystUser, db: DbSession) -> AlertDetail:
     if alert is None:
         raise AppError("not_found", "Alert not found", 404)
     model = db.get(ModelVersion, alert.model_version_id)
-    recommendations = db.scalars(
-        select(Recommendation)
-        .where(Recommendation.alert_id == alert.id)
-        .order_by(Recommendation.id)
-    ).all()
+    recommendations = ensure_for_alert(db, alert)
     incidents = db.scalars(
         select(Incident)
         .join(IncidentAlert, IncidentAlert.incident_id == Incident.id)

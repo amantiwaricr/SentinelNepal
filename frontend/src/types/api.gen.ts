@@ -138,6 +138,17 @@ export interface DashboardOut {
   active_models: ActiveModel[]
 }
 
+export interface EvidenceRequirement {
+  name: string
+  description: string
+}
+
+export interface EvidenceResult {
+  met: boolean
+  description: string
+  observed: string
+}
+
 export interface FirewallActionResultOut {
   id: number
   operation: string
@@ -324,6 +335,8 @@ export interface ModelVersionOut {
   live_inference_approved: boolean
   activated_at: string | null
   created_at: string
+  low_precision_categories: string[]
+  precision_source: 'test' | 'validation' | null
 }
 
 export interface NoteCreate {
@@ -356,11 +369,26 @@ export interface RecommendationOut {
   action: string
   reason: string
   required_evidence: string[]
-  evidence_present: Record<string, unknown>
-  priority: string
+  evidence_present: Record<string, EvidenceResult>
+  priority: 'low' | 'medium' | 'high'
   limitations: string
   requires_human_approval: boolean
   created_at: string
+}
+
+export interface RuleOut {
+  rule_id: string
+  version: string
+  group: string
+  categories: string[]
+  kind: 'investigate' | 'harden' | 'contain'
+  heuristic: boolean
+  action: string
+  reason: string
+  required_evidence: EvidenceRequirement[]
+  priority: 'low' | 'medium' | 'high'
+  limitations: string
+  requires_human_approval: boolean
 }
 
 export interface SubnetSummaryOut {

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import IPvAnyAddress
+from pydantic import IPvAnyAddress, computed_field
 
 from app.schemas.common import (
     AlertSource,
@@ -14,6 +14,7 @@ from app.schemas.common import (
     Severity,
     StrictModel,
 )
+from app.services.models import category_precision, low_precision_categories
 
 
 class ModelVersionOut(OrmModel):
@@ -32,6 +33,17 @@ class ModelVersionOut(OrmModel):
     live_inference_approved: bool
     activated_at: datetime | None
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def low_precision_categories(self) -> list[str]:
+        """Attack categories whose recorded precision is below RELIABLE_PRECISION."""
+        return low_precision_categories(self.metrics)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def precision_source(self) -> Literal["test", "validation"] | None:
+        return category_precision(self.metrics)[1]
 
 
 class ModelBrief(OrmModel):
@@ -80,6 +92,15 @@ class AlertOut(OrmModel):
     created_at: datetime
 
 
+Priority = Literal["low", "medium", "high"]
+
+
+class EvidenceResult(StrictModel):
+    met: bool
+    description: str
+    observed: str
+
+
 class RecommendationOut(OrmModel):
     id: int
     alert_id: int
@@ -89,8 +110,8 @@ class RecommendationOut(OrmModel):
     action: str
     reason: str
     required_evidence: list[str]
-    evidence_present: dict[str, Any]
-    priority: str
+    evidence_present: dict[str, EvidenceResult]
+    priority: Priority
     limitations: str
     requires_human_approval: bool
     created_at: datetime

@@ -1503,7 +1503,7 @@
           "recommendations"
         ],
         "summary": "List Recommendations",
-        "description": "Stored recommendations for an alert. The rule engine that creates them is Phase 5.",
+        "description": "Recommendations for an alert; generated from the rule catalogue on first request.",
         "operationId": "list_recommendations_api_v1_recommendations_get",
         "parameters": [
           {
@@ -1537,6 +1537,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recommendations/rules": {
+      "get": {
+        "tags": [
+          "recommendations"
+        ],
+        "summary": "List Rules",
+        "description": "The full rule catalogue, so analysts can see why each recommendation is made.",
+        "operationId": "list_rules_api_v1_recommendations_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Rules Api V1 Recommendations Rules Get"
                 }
               }
             }
@@ -2963,6 +2989,49 @@
         ],
         "title": "DashboardOut"
       },
+      "EvidenceRequirement": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "title": "EvidenceRequirement"
+      },
+      "EvidenceResult": {
+        "properties": {
+          "met": {
+            "type": "boolean",
+            "title": "Met"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "observed": {
+            "type": "string",
+            "title": "Observed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "met",
+          "description",
+          "observed"
+        ],
+        "title": "EvidenceResult"
+      },
       "FirewallActionResultOut": {
         "properties": {
           "id": {
@@ -4049,6 +4118,31 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "low_precision_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Low Precision Categories",
+            "description": "Attack categories whose recorded precision is below RELIABLE_PRECISION.",
+            "readOnly": true
+          },
+          "precision_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "test",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision Source",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -4067,7 +4161,9 @@
           "is_active",
           "live_inference_approved",
           "activated_at",
-          "created_at"
+          "created_at",
+          "low_precision_categories",
+          "precision_source"
         ],
         "title": "ModelVersionOut"
       },
@@ -4390,12 +4486,19 @@
             "title": "Required Evidence"
           },
           "evidence_present": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EvidenceResult"
+            },
             "type": "object",
             "title": "Evidence Present"
           },
           "priority": {
             "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
             "title": "Priority"
           },
           "limitations": {
@@ -4429,6 +4532,91 @@
           "created_at"
         ],
         "title": "RecommendationOut"
+      },
+      "RuleOut": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "investigate",
+              "harden",
+              "contain"
+            ],
+            "title": "Kind"
+          },
+          "heuristic": {
+            "type": "boolean",
+            "title": "Heuristic"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "required_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRequirement"
+            },
+            "type": "array",
+            "title": "Required Evidence"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Priority"
+          },
+          "limitations": {
+            "type": "string",
+            "title": "Limitations"
+          },
+          "requires_human_approval": {
+            "type": "boolean",
+            "title": "Requires Human Approval"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule_id",
+          "version",
+          "group",
+          "categories",
+          "kind",
+          "heuristic",
+          "action",
+          "reason",
+          "required_evidence",
+          "priority",
+          "limitations",
+          "requires_human_approval"
+        ],
+        "title": "RuleOut"
       },
       "SubnetSummaryOut": {
         "properties": {

@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,9 +9,13 @@ from app.models.mixins import EMPTY_JSON_ARRAY, EMPTY_JSON_OBJECT, CreatedAt
 
 
 class Recommendation(Base, CreatedAt):
-    """A rule-based defensive suggestion for one alert (rules arrive in Phase 5)."""
+    """A rule-based defensive suggestion for one alert (rules: services/recommendations)."""
 
     __tablename__ = "recommendations"
+    # One row per rule per alert: generation is idempotent even when two requests race.
+    __table_args__ = (
+        UniqueConstraint("alert_id", "rule_id", name="uq_recommendations_alert_rule"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     alert_id: Mapped[int] = mapped_column(ForeignKey("alerts.id"), index=True)

@@ -42,6 +42,7 @@ EXPECTED: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/incidents/{incident_id}/notes"): ANALYST,
     ("GET", "/api/v1/incidents/{incident_id}/history"): ANALYST,
     ("GET", "/api/v1/recommendations"): ANALYST,
+    ("GET", "/api/v1/recommendations/rules"): ANALYST,
     ("GET", "/api/v1/firewall/requests"): ANALYST,
     ("GET", "/api/v1/firewall/requests/{request_id}"): ANALYST,
     # Creating requests needs an admin unless FIREWALL_ANALYSTS_MAY_REQUEST is set; that

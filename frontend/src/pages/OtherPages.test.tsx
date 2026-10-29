@@ -187,6 +187,8 @@ const MODEL: ModelVersionOut = {
   },
   is_active: false,
   live_inference_approved: false,
+  low_precision_categories: ['DoS'],
+  precision_source: 'validation',
   activated_at: null,
   created_at: '2026-10-28T10:00:00Z',
 }

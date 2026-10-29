@@ -2,10 +2,11 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from sentinel_ml.artifacts import MODEL_FILE, ArtifactError, load_manifest
 from sentinel_ml.features.dataset import sha256_file
+from sentinel_ml.schema import NORMAL
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,6 +17,29 @@ from app.core.time import utcnow
 from app.models.model_version import ModelVersion
 from app.services import audit
 from app.services.audit import AuditContext
+
+# Below this per-class precision a predicted category is called unreliable: most records the
+# model gives that label belong to another class. Shown in the UI and used by recommendations.
+RELIABLE_PRECISION = 0.5
+
+
+Split = Literal["test", "validation"]
+SPLITS: tuple[Split, ...] = ("test", "validation")
+
+
+def category_precision(metrics: dict[str, Any]) -> tuple[dict[str, float], Split | None]:
+    """Per-class precision recorded at registration: the testing file if evaluated, else the
+    validation split. Returns the values and which split they come from."""
+    for split in SPLITS:
+        values = (metrics.get(split) or {}).get("per_class_precision")
+        if values:
+            return {str(k): float(v) for k, v in values.items()}, split
+    return {}, None
+
+
+def low_precision_categories(metrics: dict[str, Any]) -> list[str]:
+    precision, _ = category_precision(metrics)
+    return sorted(c for c, p in precision.items() if c != NORMAL and p < RELIABLE_PRECISION)
 
 
 def artifact_path(settings: Settings, relative: str) -> Path:
