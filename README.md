@@ -135,8 +135,9 @@ cd ../backend
 python -m app.cli register-model ../ml/artifacts/<artifact-dir> --reports-dir ../ml/reports --activate
 ```
 
-With Docker, `ml/artifacts` is mounted read-only at `/models`:
-`docker compose exec backend python -m app.cli register-model /models/<artifact-dir> --activate`
+With Docker, `ml/artifacts` is mounted read-only at `/models` and `ml/reports` at
+`/model-reports`:
+`docker compose exec backend python -m app.cli register-model /models/<artifact-dir> --reports-dir /model-reports --activate`
 (without `--reports-dir`, alerts use the model's default decision instead of a threshold).
 The model's SHA-256 is stored at registration; a model file that changes on disk afterwards
 is never loaded.

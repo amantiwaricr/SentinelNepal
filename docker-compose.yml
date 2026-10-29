@@ -57,6 +57,8 @@ services:
     environment: *backend-env
     volumes:
       - ./ml/artifacts:/models:ro
+      # Read by `app.cli register-model --reports-dir` for metrics and the alert threshold.
+      - ./ml/reports:/model-reports:ro
       - uploads:/srv/backend/uploads
     ports:
       - "127.0.0.1:8000:8000"
