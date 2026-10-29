@@ -114,6 +114,11 @@ def test_heartbeat_marks_the_collector_online(
     assert analyst.get("/api/v1/collectors").json()[0]["online"] is False
     health = analyst.get("/api/v1/health/components").json()["components"]["collectors"]
     assert health["status"] == "unavailable" and "lab-sensor" in health["detail"]
+    # A collector that shuts down cleanly says so and is shown offline straight away.
+    sensor.post("/api/v1/ingest/heartbeat", json={"status": "running"})
+    assert analyst.get("/api/v1/collectors").json()[0]["online"] is True
+    sensor.post("/api/v1/ingest/heartbeat", json={"status": "stopping"})
+    assert analyst.get("/api/v1/collectors").json()[0]["online"] is False
 
 
 def test_invalid_records_are_rejected_and_counted(

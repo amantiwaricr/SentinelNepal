@@ -19,6 +19,8 @@ x-backend-env: &backend-env
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   LOG_FORMAT: ${LOG_FORMAT:-json}
+  LIVE_MODEL_PROFILE: ${LIVE_MODEL_PROFILE:-full_no_ttl}
+  COLLECTOR_OFFLINE_SECONDS: ${COLLECTOR_OFFLINE_SECONDS:-30}
   # Trained models from ml/artifacts are mounted read-only (see volumes below).
   MODEL_ARTIFACTS_DIR: /models
 

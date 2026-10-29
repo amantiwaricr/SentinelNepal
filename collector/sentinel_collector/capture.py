@@ -115,8 +115,11 @@ class CapturePipeline:
             self._done.add(path.name)
         if ended:
             self._save_state()
-        # Flows idle for long enough end even when no new packets arrive.
-        ended.extend(self.builder.expire(self._clock() - self.expiry_lag))
+        # Flows idle for long enough end even when no new packets arrive. Open flows are
+        # judged against a lagging clock (they may continue in the file being written);
+        # TCP flows already closed by FIN/RST cannot, so they end without the lag.
+        now = self._clock()
+        ended.extend(self.builder.expire(now - self.expiry_lag, closed_now=now))
         return self._records(ended)
 
     def flush(self) -> list[dict[str, Any]]:

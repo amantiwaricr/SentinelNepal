@@ -72,7 +72,9 @@ def authenticate_collector(db: Session, token: str | None) -> Collector | None:
 
 
 def is_online(collector: Collector, settings: Settings, now: datetime | None = None) -> bool:
-    if collector.last_heartbeat_at is None:
+    """Online = a heartbeat within the offline threshold, unless the last one said the
+    collector was shutting down (then it shows offline at once)."""
+    if collector.last_heartbeat_at is None or collector.heartbeat_stats.get("status") == "stopping":
         return False
     now = now or utcnow()
     return now - collector.last_heartbeat_at <= timedelta(

@@ -221,6 +221,18 @@ def test_flow_continuing_in_the_file_being_written_is_not_split(tmp_path: Path) 
 
 
 @needs_tshark
+def test_closed_flows_end_promptly_on_a_quiet_network(tmp_path: Path) -> None:
+    captures = tmp_path / "captures"
+    captures.mkdir()
+    write_synthetic_pcap(captures / "lab_00001_20261029160000.pcap", _session(1000, 40000))
+    (captures / "lab_00002_20261029160030.pcap").write_bytes(b"")
+    # No later packets advance the flow clock; 5 s of real time is enough for a FIN flow.
+    pipeline = CapturePipeline(captures, tmp_path / "state", clock=lambda: 1005.0)
+    (flow,) = pipeline.poll()
+    assert flow["features"]["state"] == "FIN"
+
+
+@needs_tshark
 def test_unreadable_capture_is_reported_not_fatal(tmp_path: Path) -> None:
     captures = tmp_path / "captures"
     captures.mkdir()

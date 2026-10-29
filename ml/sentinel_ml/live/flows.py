@@ -163,8 +163,8 @@ class FlowBuilder:
         self.evicted = 0
         self.clock = 0.0
 
-    def _expired(self, flow: Flow, now: float) -> bool:
-        if flow.proto == 6 and flow.tcp_closed and now - flow.last >= self.closed_timeout:
+    def _expired(self, flow: Flow, now: float, closed_now: float) -> bool:
+        if flow.proto == 6 and flow.tcp_closed and closed_now - flow.last >= self.closed_timeout:
             return True
         return now - flow.last >= self.idle_timeout or now - flow.start >= self.active_timeout
 
@@ -187,9 +187,14 @@ class FlowBuilder:
         for packet in packets:
             yield from self.add(packet)
 
-    def expire(self, now: float) -> Iterator[Flow]:
-        """Flows that have ended by time ``now`` (packet time), oldest last-packet first."""
-        done = [k for k, f in self.active.items() if self._expired(f, now)]
+    def expire(self, now: float, *, closed_now: float | None = None) -> Iterator[Flow]:
+        """Flows that have ended by time ``now`` (packet time), oldest last-packet first.
+
+        ``closed_now`` (default ``now``) is the time used for TCP flows already closed by
+        FIN/RST: a caller unsure whether more packets are still to come for open flows can
+        hold those back while letting closed ones end."""
+        closed = now if closed_now is None else closed_now
+        done = [k for k, f in self.active.items() if self._expired(f, now, closed)]
         for key in sorted(done, key=lambda k: self.active[k].last):
             yield self.active.pop(key)
 

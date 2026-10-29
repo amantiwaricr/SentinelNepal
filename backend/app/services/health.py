@@ -121,7 +121,10 @@ def check_components(
     elif offline:
         components["collectors"] = ComponentStatus(
             status="unavailable",
-            detail=f"No heartbeat for {settings.collector_offline_seconds} s: {', '.join(offline)}",
+            detail=(
+                f"Stopped or no heartbeat for {settings.collector_offline_seconds} s: "
+                f"{', '.join(offline)}"
+            ),
         )
     else:
         components["collectors"] = ComponentStatus(
