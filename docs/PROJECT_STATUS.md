@@ -4,9 +4,13 @@ _Last updated: 2026-10-29_
 
 ## Current phase
 
-**Phase 5 — Defense recommendations and security hardening: complete.** Next: Phase 6 (live
-network monitoring). Lab VM availability and written supervisor authorisation must be
-confirmed before live collection starts.
+**Phase 6 — Live network monitoring: complete** (TShark in an isolated Docker lab; see
+the limitations below). Next: Phase 7 (nftables blocking with approval). That phase needs a
+disposable Linux VM: real nftables tests must never run on a primary machine.
+
+The team asked to start Phase 6 but has not yet recorded the supervisor's **written
+authorisation** in this repository. The lab is a closed Docker network, but the
+authorisation must still be filed before the lab is demonstrated.
 
 ## Phase tracker
 
@@ -18,14 +22,172 @@ confirmed before live collection starts.
 | 3 | Backend APIs, DB, auth, incidents | Complete |
 | 4 | Frontend SOC dashboard | Complete |
 | 5 | Recommendations and hardening | Complete |
-| 6 | Live network monitoring | Not started |
+| 6 | Live network monitoring | Complete (TShark/Docker lab; real-model lab run pending) |
 | 7 | nftables approved blocking | Not started |
 | 8 | Integration, testing, documentation | Not started |
 
 Phase 0 decisions recorded at approval: a different admin must approve each block
 (configurable for solo demos); only admins request blocks; server-side sessions in an
-HttpOnly cookie; team roles as in `implementation-plan.md` §2. Lab VM availability and
-written supervisor authorisation are still to be confirmed before Phase 6.
+HttpOnly cookie; team roles as in `implementation-plan.md` §2.
+
+Phase 6 decisions (team, 2026-10-29):
+
+- **TShark instead of Zeek.** TShark does the protocol dissection; SentinelNepal only
+  groups its fields into flows.
+- **A Docker lab instead of a VirtualBox/WSL VM**, so that it runs on Docker Desktop for
+  Windows.
+
+## Phase 6 — completed work
+
+- **`sentinel_ml.live`** (feature engineering stays in `ml/`):
+  - runs `tshark -T fields` with a fixed argument list and no shell, and parses its packet
+    lines (malformed lines are counted, not guessed);
+  - builds bidirectional flows: they end on FIN/RST + 2 s, 30 s idle, or 300 s active, with
+    a 50,000-flow memory bound;
+  - computes UNSW-NB15 features with the dataset's units, plus the 100-connection `ct_*`
+    window;
+  - `TSHARK_FEATURE_MAP` and `check_compatibility()`.
+- **Feature mapping:** `ct_state_ttl` cannot be obtained from TShark. The live profile is
+  therefore `full_no_ttl` (36 features), of which 15 are documented approximations
+  (`docs/feature-mapping.md`, generated tables). `sentinel-ml pcap-features` exports flows
+  from a capture to CSV.
+- **Backend:**
+  - collectors with hashed bearer tokens (`create-collector`, `rotate-collector-token`);
+  - `POST /ingest/flows` validates each record (bad records are counted, the rest of the
+    batch is kept), with a 2 MiB / 500-record limit and a bounded queue (overflow is
+    counted as dropped);
+  - `POST /ingest/heartbeat`;
+  - a `LiveWorker` thread scores batches; duplicate alerts are prevented by `dedup_key`;
+  - the **live gate**: an active `full_no_ttl` model, compatible features, admin approval
+    (audited), and the collector in `inference` mode (audited; refused while the gate is
+    closed);
+  - `/live/status`, `/live/flows`, `/collectors`, `/models/{id}/live-approval`;
+  - the `/events` WebSocket (session cookie, Origin check, session re-checked every 60 s);
+  - collector health on System & Settings: offline 30 s after the last heartbeat, or at
+    once after a clean stop. Migration `0004`.
+- **Collector** (`collector/`, see its README):
+  - reads finished dumpcap ring-buffer files, ordered by their start time;
+  - batching sender with a bounded buffer and backoff; heartbeat every 10 s;
+  - `replay` sends a UNSW-NB15 CSV as `source: replay`.
+- **Docker lab** (`docker compose --profile lab`):
+  - `lab-server` (nginx + sshd) and `lab-client` on an `internal` network;
+  - `capture` (dumpcap as an unprivileged user with only `CAP_NET_RAW`, in `lab-server`'s
+    network namespace);
+  - `collector` (unprivileged, read-only filesystem, no capabilities);
+  - traffic scripts `normal.sh`, `scan.sh`, `ssh-guess.sh`, `http-burst.sh`, which can only
+    target `lab-server`.
+- **Frontend:**
+  - Live Monitoring page: gate status and reason, approximated features, collector
+    online/offline, mode, counters and last problem, recent flows tagged Live/Replay;
+  - admin mode switch; live approval on the Model page;
+  - a WebSocket provider with reconnect/backoff. The dashboard, alerts list and Live page
+    refetch on notifications without a reload.
+- **Docs:** `docs/lab-runbook.md` (Windows/Docker Desktop steps), architecture §10.1/§11.1,
+  threat model (collector, dissector), `collector/README.md`, README.
+- **CI:**
+  - new `collector` job (ruff, mypy, pytest with TShark installed);
+  - the ML job installs TShark, so the real-capture test runs;
+  - the audit job includes the collector;
+  - the compose job builds the `lab` profile.
+
+## Phase 6 — test results (actually run on 2026-10-29)
+
+| Check | Result |
+|---|---|
+| Backend `ruff format --check`, `ruff check`, `mypy` | clean |
+| Backend tests with PostgreSQL | **232 passed** (11 live/ingest/WebSocket integration tests; authorisation matrix extended to the new routes) |
+| ML `ruff`, `mypy`, `pytest` | clean; **171 passed** (22 live tests, one runs real TShark 4.2.2 on a synthetic pcap) |
+| Collector `ruff`, `mypy`, `pytest` | clean; **14 passed** (synthetic packets and CSV rows; TShark 4.2.2 installed) |
+| Frontend generated types, format, lint, typecheck | clean |
+| Frontend tests | **83 passed** (14 files) |
+| Frontend build | built |
+| `docker compose --profile lab config` | valid |
+| `pip-audit` for the collector | not run locally (tool not installed in the sandbox); the CI audit job runs it |
+
+### Lab run (sandbox, 2026-10-29, real containers and real captured packets)
+
+**Setup.** This was the Docker lab on the verification sandbox, not the team's machine.
+
+- Docker Hub and the Debian mirror were unreachable there. The images were built from a
+  locally bootstrapped Ubuntu 24.04 base, with the same packages and steps as the committed
+  Dockerfiles. Those Dockerfiles (`python:3.13-slim`, `debian:bookworm-slim`) are built by
+  the CI compose job.
+- **The model was trained on synthetic data** (`sentinel_ml.testing`, `full_no_ttl`
+  profile, threshold set by hand to 0.2), because the UNSW-NB15 files are not in the
+  sandbox. Its predicted categories and scores are therefore **meaningless**. The run shows
+  that the pipeline works; it says nothing about detection quality. A run with the real
+  `full_no_ttl` model is still to be recorded on the team machine.
+- Times are UTC. Screenshots were taken with Playwright/Chromium and not committed.
+
+**Flows:**
+
+- After the fixes below, an offline rebuild of 12 capture files gave 98 flows, all `FIN`,
+  none single-packet.
+- The Live page showed real lab flows: `lab-client:<port> → lab-server:80`, tcp/http,
+  `FIN`, 6/4 packets, about 400/470 bytes.
+- Heartbeat counters after the run: 35 capture files, 8,406 packets, 0 malformed lines,
+  0 unreadable files, 0 send failures, 0 dropped.
+- 26 records were rejected. All were sent before the `feature_source` fix below.
+
+**Gate:**
+
+- In observation mode, flows were shown with **Not scored**, and the gate showed "not
+  approved for live inference".
+- Through the browser, an admin approved the model and switched `lab-sensor` to
+  inference. The gate then read: "approved for live use. All features obtainable from
+  TShark; 15 are approximations not validated against UNSW-NB15 ground truth."
+
+**Exercises** (synthetic model, so the labels mean nothing):
+
+| Exercise (time) | Observed |
+|---|---|
+| `scan.sh` (16:19:49) | Dashboard total went from 9 to 1,041 with **0 page navigations**. WebSocket messages: 1 `hello`, 6 `flows.observed`, 6 `alerts.created`. One alert per probed port (1,024 "Exploits", plus 17 "Fuzzers" from browsing) |
+| ordinary `normal.sh` browsing | Also raised alerts with the synthetic model (false positives on known-benign traffic) |
+| `ssh-guess.sh` (16:29:15–16:30:10) | 15 alerts on port 22 ("Fuzzers", scores 0.600–0.680) |
+| `http-burst.sh` (finished 16:30:11) | Last burst alert stored at 16:30:45, about 34 s later. 329 port-80 alerts in that window (the burst plus browsing) |
+| collector `docker stop` (16:20:48–51) | Health showed `collectors: unavailable` at the 16:21:25 poll (5 s polling), 30 s after the last heartbeat. Then a change was made: a clean stop shows offline at once. Retest: stopped 16:24:07, `unavailable` at 16:24:10 |
+| collector restart (16:23:54) | Online at 16:24:00. It read the capture files written while it was down (164 more alerts) and created **no duplicates**: 1,215 alerts, 1,215 distinct flows |
+| `ssh-guess.sh` on a quiet network (background browsing stopped; after the closed-flow change below), 16:33:02–16:33:42 | All 15 port-22 alerts were stored by 16:33:44, 2 s after the script ended. dumpcap rotated its file at 16:33:44 even without traffic |
+| replay of a 300-row synthetic CSV | `rows_read=300, rows_rejected_locally=0, accepted_by_api=300`; 195 `replay` alerts |
+| replay of a 200-row synthetic CSV, browser open | Dashboard total went from 1,427 to 1,554 with 0 page navigations |
+
+### Phase 6 acceptance
+
+- [x] The collector processes supported records: TShark flows and CSV replay (lab run;
+  `test_live.py`, `test_collector.py`).
+- [x] Invalid records are rejected or handled safely, and counted. The integration test
+  sends bad IPs, non-finite values, unknown features, negative times and missing fields.
+  In the lab run, 26 records were rejected without stopping the collector.
+- [x] The dashboard updates without manual CSV upload: WebSocket notifications plus a REST
+  refetch, with no reload (lab run, frontend tests).
+- [x] Collection failures are visible: offline status, health component, unreadable
+  capture files, send failures, drops and last error are shown on the Live page.
+- [x] Live inference is enabled only for validated compatible features. The gate requires
+  compatibility and an admin approval; the `full` model is refused (`ct_state_ttl`).
+  "Validated" here means the mapping was checked and approved by a person. The 15
+  approximated features have not been validated against ground truth (see limitations).
+- [x] CSV replay remains as a fallback (`sentinel-collector replay`).
+- [ ] A lab run with the real `full_no_ttl` model, recorded on the team machine. Supervisor
+  authorisation to be filed.
+
+### Defects found and fixed during Phase 6
+
+- Flow records lacked `feature_source`, so the API rejected them (the 26 rejected records).
+- dumpcap restarts reset its file sequence numbers, so name order interleaved two runs.
+  The flow builder's clock jumped ahead, which split almost every flow (170 of 189 flows
+  had a single packet). Files are now ordered by their start time, and idle flows are
+  ended 60 s behind real time (the file being written may still contain packets).
+- Capture files were root-owned with mode 0600, so the collector could not read them.
+  Capture and collector now share an unprivileged user, and dumpcap gets `CAP_NET_RAW`
+  as a file capability.
+- nginx failed on the IPv6 listen line in a container without IPv6; the lab server now
+  listens on IPv4 only.
+- A WebSocket refresh could be lost when a reconnect changed the context value; the
+  subscription is now stable.
+- A collector's clean shutdown waited 30 s before showing offline; it now shows at once.
+- With the 60 s lag above, TCP flows that had already closed also waited for it on a quiet
+  network. Closed flows now end without the lag (test
+  `test_closed_flows_end_promptly_on_a_quiet_network`).
 
 ## Phase 5 — completed work
 
@@ -486,15 +648,34 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 ## Known issues / limitations
 
 - The UI has no self-service password change; administrators reset passwords.
-- Dataset runs are refreshed by polling every 3 s while in progress; WebSocket notifications
-  arrive with live ingest in Phase 6.
+- Dataset runs are refreshed by polling every 3 s while in progress (WebSocket notifications
+  cover live and replayed alerts only).
 - The incident "add to incident" picker lists at most 100 incidents (API page size).
 - Rate limiting is in-memory and per process; it resets on restart (documented residual risk).
 - The application's database user owns the tables, so it could disable the audit trigger;
   production hardening (a separate non-owner role) is planned for Phase 8.
 - The analysis worker is single-process; running several API worker processes is unsupported.
-- Recommendation rules (Phase 5), live ingest and WebSocket events (Phase 6), and firewall
-  execution (Phase 7) are not implemented; their endpoints and tables exist where planned.
+- Firewall execution (Phase 7) is not implemented; its endpoints and tables exist where
+  planned.
+- **Live monitoring (Phase 6):**
+  - 15 of the live model's 36 features are TShark approximations of Argus/Bro values
+    (window sizes, jitter, inter-packet times, loss, handshake times, load, state, `ct_*`
+    windows). They have not been compared with UNSW-NB15 ground truth (that would need
+    the published pcaps), so live scores carry an unmeasured domain shift.
+  - Admin approval records acceptance of this, not validation.
+  - Every flow is scored and alerted separately. A port scan produces about one alert per
+    port; there is no alert grouping or rate limit on alert creation yet.
+  - A live alert appears only after its 30 s capture file is finished. A TCP flow ends
+    2 s after FIN/RST. Other flows end after 30 s idle, and on a quiet network up to 60 s
+    later, because open flows are held back in case they continue in the file being
+    written. Observed in the lab: 2–34 s after the traffic ended.
+  - Recent flows are held in backend memory (last 200) and lost on restart. Collector
+    read-state is in the container's tmpfs, so a restarted collector re-reads the ring
+    buffer; deduplication prevents duplicate alerts.
+  - The collector container shares the default Compose network with the database (it
+    needs the backend). It has no database credentials.
+  - UNSW-NB15 has no brute-force class; SSH guessing can only show up under other
+    category names.
 - The plan's "demo seed script" was replaced by `python -m app.cli create-user`.
 - API responses have a strict CSP; the frontend page has none yet because the Vite dev
   server needs inline scripts. The Phase 8 production build must add one
@@ -505,14 +686,17 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 - Version choices: TypeScript is held at 6.0 because `typescript-eslint` 8.72 supports
   `<6.1`; React Router is held at 7.x (maintained) rather than 8.x to use a well-documented API.
 
-- ML: scores are uncalibrated (no calibration study yet); UNSW-NB15 has no brute-force class;
-  live feature mapping is preliminary until Phase 6.
+- ML: scores are uncalibrated (no calibration study yet).
 
 ## Next steps
 
-1. On each installation with the real artifacts, register the `full` model if not done yet
-   (see README). After pulling Phase 5, rebuild (`docker compose up -d --build`); the
-   `migrate` service applies migration `0003`. Existing alerts get recommendations when
-   opened.
-2. Phase 6: confirm the lab VM and written authorisation; then the Zeek collector, ingest
-   endpoint, compatibility gate for live inference, and WebSocket notifications.
+1. On the team machine (Windows, Docker Desktop), follow `docs/lab-runbook.md`:
+   - pull, then `docker compose up -d --build` (applies migration `0004`);
+   - train, threshold and register a `full_no_ttl` model;
+   - create the collector and put its token in `.env`;
+   - start the lab profile, approve the model and enable inference;
+   - run the four scripts and a replay, and record the real observations (counts,
+     categories, scores, screenshots) in this file.
+2. File the supervisor's written authorisation for the lab.
+3. Phase 7: the nftables helper. It needs a disposable Linux VM (VirtualBox Ubuntu is fine)
+   for the real firewall tests; unit tests use `FakeNftAdapter` and need no root.

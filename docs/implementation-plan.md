@@ -125,11 +125,19 @@ aggregator, batching sender with retry/backoff, heartbeat); `replay` command for
 ingest endpoint + bounded queue + inference worker; WebSocket broadcast; compatibility gate;
 `docs/feature-mapping.md` with the verified table; lab runbook.
 
-Acceptance:
-- [ ] Replay of a CSV creates alerts that appear on the dashboard without page reload.
-- [ ] Invalid records are rejected and counted; collector offline is visible within 30 s.
-- [ ] Live inference stays disabled until the gate passes; the reason is shown.
-- [ ] Lab run documented with real observations (screenshots/logs), no fabricated detections.
+As built (2026-10-29): TShark instead of Zeek, in a Docker lab instead of a VM (team
+decision; see `architecture.md` §10.1). The Zeek-specific tasks (log tailer, `uid` joins)
+became a capture-file reader and a flow builder over TShark fields; the lab runbook is
+`docs/lab-runbook.md`.
+
+Acceptance (met 2026-10-29 in the sandbox lab; evidence in `PROJECT_STATUS.md`):
+- [x] Replay of a CSV creates alerts that appear on the dashboard without page reload.
+- [x] Invalid records are rejected and counted; collector offline is visible within 30 s
+  (30 s after the last heartbeat; at once after a clean stop).
+- [x] Live inference stays disabled until the gate passes; the reason is shown.
+- [x] Lab run documented with real observations (screenshots/logs), no fabricated
+  detections. The sandbox run used a model trained on synthetic data; a run with the real
+  `full_no_ttl` model on the team machine is still to be recorded.
 
 ### Phase 7 — nftables and approved blocking (weeks 9–10)
 

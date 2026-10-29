@@ -31,7 +31,7 @@
 
 1. Browser ↔ API (untrusted user input, including authenticated users).
 2. File upload ↔ dataset processor (untrusted file content).
-3. Network traffic ↔ Zeek ↔ collector ↔ API (attacker-influenced data).
+3. Network traffic ↔ Zeek/TShark ↔ collector ↔ API (attacker-influenced data). Phase 6 uses TShark.
 4. API ↔ PostgreSQL (app role with limited privileges).
 5. API ↔ firewall helper (the only path to privileged operations).
 6. Developer ↔ repository (secrets and data must not be committed).
@@ -77,11 +77,12 @@
 
 | Threat | Mitigation |
 |---|---|
-| Spoofed/injected flow records | Per-collector bearer token (hashed in DB, rotatable); ingest endpoints accept only collector tokens; schema validation; size limits (≤ 500 records, ≤ 1 MB per request) |
+| Spoofed/injected flow records | Per-collector bearer token (hashed in DB, rotatable); ingest endpoints accept only collector tokens; schema validation; size limits (≤ 500 records, ≤ 2 MiB per request); failed token attempts rate-limited and audited |
 | Spoofed source IPs in traffic → innocent IP blocked | Human approval required; evidence shown; UDP/ICMP spoofing warning in recommendation limitations; short expiry |
 | Log flooding → backpressure | Bounded queues on both sides, counted drops, visible health |
-| Sensitive data in logs | Collector logs counts and error codes, not payloads; Zeek logs not committed |
-| Collector privilege | Runs as an unprivileged user that can only read Zeek's log directory; Zeek itself holds the capture capability |
+| Sensitive data in logs | Collector logs counts and error codes, not payloads; capture files stay in a Docker volume (10-minute ring buffer) and are never committed |
+| Collector privilege | Phase 6 (TShark): the collector container is unprivileged, read-only, with no capabilities, and reads the capture volume read-only. Only the separate `dumpcap` container holds `CAP_NET_RAW`, inside `lab-server`'s network namespace on an `internal` Docker network |
+| Malicious packets exploiting the dissector | TShark parses attacker-controlled packets; it runs as an unprivileged user with no capabilities, no network access to the lab, and a read-only filesystem, so a dissector bug is contained to that container |
 
 ### 4.5 Firewall helper (highest-risk component)
 
@@ -132,7 +133,7 @@
 
 ## 6. Security test checklist (to implement in Phases 3, 5, 7)
 
-Status after Phase 5; findings and evidence are in [`security-review.md`](security-review.md).
+Status after Phase 6; findings and evidence are in [`security-review.md`](security-review.md).
 
 
 - [x] Authorisation matrix for every endpoint and role (`test_authorization_matrix.py`)
@@ -145,6 +146,6 @@ Status after Phase 5; findings and evidence are in [`security-review.md`](securi
 - [x] Upload: wrong type, oversize (declared and streamed), malformed rows, path-traversal filename (`test_analyses.py`, `test_security.py`)
 - [x] Audit: update/delete blocked at DB level (`test_audit_log.py`)
 - [x] Model: hash mismatch refuses load (`test_models.py`, `test_analyses.py`)
-- [ ] Ingest: bad token, oversize batch, invalid records (Phase 6)
+- [x] Ingest: bad token (audited, rate-limited), oversize batch, invalid records (`test_live.py`)
 - [ ] Firewall: invalid/protected targets, self-approval, duplicates and revoke idempotency are tested at the API (`test_firewall.py`); unapproved execution and timeout need the helper (Phase 7)
-- [ ] WebSocket: missing cookie, foreign Origin (Phase 6)
+- [x] WebSocket: missing cookie, foreign Origin (`test_live.py`)

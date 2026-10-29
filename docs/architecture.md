@@ -479,6 +479,32 @@ Consequences:
 4. Stretch validation: run Zeek over a slice of the published UNSW-NB15 PCAPs and join to
    the ground-truth table to measure how well Zeek-derived features match.
 
+### 10.1 As implemented in Phase 6: TShark instead of Zeek
+
+The team chose **TShark** (Wireshark's command-line tool) over Zeek for the lab, because it
+runs in a small container on Docker Desktop without a separate Linux VM. TShark still does
+all protocol dissection. `sentinel_ml.live` only groups TShark's per-packet fields into
+bidirectional flows, the way Argus did for UNSW-NB15; it is not a custom packet-analysis
+engine. Consequences, against the table above:
+
+* Per-packet fields make more features obtainable than `conn.log` does: TTLs, TCP windows,
+  jitter, inter-packet times, retransmissions (`sloss`/`dloss`) and handshake times.
+  `ct_state_ttl` stays **unavailable**: it depends on Argus's undocumented state/TTL ranges.
+* The live profile is therefore **`full_no_ttl`** (36 features), not `live_compatible`.
+  15 of the 36 are approximations that have not been validated against UNSW-NB15 ground
+  truth. The generated table is in [`feature-mapping.md`](feature-mapping.md).
+* The gate is implemented in `backend/app/services/live/gate.py`. Live scoring needs all of:
+  - an active model with the live profile;
+  - every feature obtainable from TShark (`check_compatibility`);
+  - `live_inference_approved`, set by an admin (audited);
+  - the collector switched to `inference` by an admin (audited; refused while the gate is
+    closed).
+
+  The dashboard shows the gate's reason. Approval records that a human accepted the
+  approximations; it is not a validation result.
+* Stretch validation (not done): run the same pipeline over published UNSW-NB15 pcaps and
+  compare with the ground-truth features.
+
 ## 11. Live event processing
 
 ```mermaid
@@ -507,6 +533,39 @@ sequenceDiagram
 * Duplicate handling: `alerts.dedup_key = source + collector + zeek uid`.
 * WebSocket clients reconnect with backoff and re-fetch via REST, so a missed push never
   hides data; REST is the source of truth.
+
+### 11.1 As implemented in Phase 6
+
+* **Capture and collector:**
+  - `dumpcap` writes 30 s ring-buffer files in its own container. It shares `lab-server`'s
+    network namespace and holds only `CAP_NET_RAW`.
+  - The collector container reads finished files with `tshark -T fields`. It runs with a
+    fixed argument list and no shell, as an unprivileged user on a read-only root
+    filesystem, with no capabilities.
+  - Flows end on FIN/RST + 2 s, 30 s idle, or 300 s active. The `ct_*` counts use the last
+    100 ended flows.
+* **Ingest:**
+  - `POST /api/v1/ingest/flows` takes a bearer token (only its SHA-256 is stored) and
+    batches of at most 500 records (2 MiB).
+  - Each record is validated on its own, so a bad record is counted without sinking its
+    batch.
+  - Failed token attempts are rate-limited and audited.
+  - The bounded queue holds 100 batches; when it is full, the 202 response reports the
+    batch as `dropped` and the collector's counter goes up.
+* **Worker:** one `LiveWorker` thread scores batches when the gate allows. Duplicate alerts
+  are prevented by `dedup_key = sha256(flow_id)`, which matters when a restarted collector
+  re-reads capture files.
+* **Notifications:**
+  - The `/api/v1/events` WebSocket needs the session cookie and an allowed `Origin`, and
+    re-checks the session every 60 s.
+  - It sends `flows.observed`, `alert.created`, or `alerts.created` (a summary for large
+    batches).
+  - The frontend reconnects with backoff and refetches over REST (REST is still the source
+    of truth).
+* **Health:** collectors heartbeat every 10 s. A collector shows offline 30 s after its
+  last heartbeat, or at once after a clean shutdown (its last heartbeat says `stopping`).
+* **Replay:** `sentinel-collector replay` posts CSV rows with `source: replay` and
+  `feature_source: dataset_csv`. Replay needs only an active live-profile model.
 
 ## 12. Firewall response design
 

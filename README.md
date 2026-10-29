@@ -8,10 +8,15 @@ dataset, raises alerts for analyst review, suggests defensive measures, and lets
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
 
-> **Status:** Phases 1–5 complete: SOC dashboard on a backend API with authentication,
-> alerts, incidents, evidence-based recommendations, audit log and firewall *request*
-> workflow; ML pipeline trained and evaluated on UNSW-NB15; security review done. Live
-> monitoring (Phase 6) and firewall execution (Phase 7) come later. See
+> **Status:** Phases 1–6 complete.
+>
+> - SOC dashboard on a backend API, with authentication, alerts, incidents,
+>   evidence-based recommendations, an audit log and the firewall *request* workflow.
+> - ML pipeline trained and evaluated on UNSW-NB15; security review done.
+> - Live monitoring of an isolated Docker lab with TShark, behind an admin-approved
+>   scoring gate.
+>
+> Firewall execution (Phase 7) comes later. See
 > [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
@@ -22,7 +27,8 @@ nftables. Model output is treated as evidence for investigation, never as proof 
 - [Security review](docs/security-review.md)
 - [Defensive recommendations](docs/recommendations.md)
 - [Model evaluation](docs/model-evaluation.md)
-- [Feature mapping (dataset → Zeek)](docs/feature-mapping.md)
+- [Feature mapping (dataset → TShark / Zeek)](docs/feature-mapping.md)
+- [Lab runbook: live monitoring](docs/lab-runbook.md)
 - [Project status](docs/PROJECT_STATUS.md)
 - [Contributor and agent rules](AGENTS.md) — read before contributing
 
@@ -33,7 +39,8 @@ nftables. Model output is treated as evidence for investigation, never as proof 
 | `backend/` | FastAPI API, SQLAlchemy models, Alembic migrations, pytest suite |
 | `frontend/` | React + TypeScript + Vite + Tailwind dashboard, Vitest suite |
 | `ml/` | `sentinel_ml` package: preprocessing, training, evaluation, inference (Phase 2) |
-| `collector/` | Zeek log collector and CSV replay (Phase 6) |
+| `collector/` | TShark capture collector and CSV replay (Phase 6) |
+| `lab/` | Isolated Docker lab: server, client and traffic scripts (Phase 6) |
 | `firewall/` | Restricted nftables helper (Phase 7) |
 | `docs/` | Design, plan, threat model, status |
 
@@ -76,6 +83,19 @@ Compose starts four services in order: `db` (PostgreSQL 16) → `migrate` (runs
 
 Stop with `Ctrl+C`, or `docker compose down`. `docker compose down -v` also **deletes the
 database volume**.
+
+### Live monitoring lab (optional)
+
+The `lab` profile adds an isolated lab network, packet capture of its server, and the
+collector. Set it up first: train a `full_no_ttl` model, register a collector, and put its
+token in `.env`. Then run:
+
+```bash
+docker compose --profile lab up -d --build
+```
+
+Every step, including test traffic, failure tests and CSV replay, is in
+[docs/lab-runbook.md](docs/lab-runbook.md).
 
 ## Option B — native development (faster edit/reload)
 
@@ -210,10 +230,24 @@ cd backend && python -m app.cli export-openapi
 cd ../frontend && npm run gen:api
 ```
 
+### ML and collector
+
+```bash
+cd ml && ruff format --check . && ruff check . && mypy && pytest
+```
+
+```bash
+cd collector && ruff format --check . && ruff check . && mypy && pytest
+```
+
+The collector needs `pip install -r requirements-dev.txt -e ../ml -e .`. Its capture tests,
+and one ML test, need `tshark` on `PATH`; they are skipped without it.
+
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs all of the above on every push and pull request, with the
-integration tests against a PostgreSQL service container, plus `docker compose config`.
+integration tests against a PostgreSQL service container and TShark installed. It also
+validates and builds every Compose image, including the `lab` profile.
 
 ## Database migrations
 
@@ -239,6 +273,9 @@ All settings come from environment variables (see `.env.example`). Never commit 
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `LOG_FORMAT` | `json` | `json` or `text` |
 | `TEST_DATABASE_URL` | unset | Enables PostgreSQL integration tests (name must end in `_test`) |
+| `COLLECTOR_TOKEN` | unset | The lab collector's token (from `create-collector`) |
+| `LIVE_MODEL_PROFILE` | `full_no_ttl` | Feature profile of the model used for live and replayed flows |
+| `COLLECTOR_OFFLINE_SECONDS` | `30` | A collector without a heartbeat for this long is shown offline |
 
 ## API conventions
 
