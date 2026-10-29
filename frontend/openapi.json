@@ -423,6 +423,59 @@
         }
       }
     },
+    "/api/v1/models/{model_id}/live-approval": {
+      "post": {
+        "tags": [
+          "models"
+        ],
+        "summary": "Live Approval",
+        "description": "Approve or withdraw a model for scoring live traffic (compatibility checked, audited).",
+        "operationId": "live_approval_api_v1_models__model_id__live_approval_post",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveApprovalIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelVersionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/datasets/analyses": {
       "post": {
         "tags": [
@@ -2096,6 +2149,214 @@
           }
         }
       }
+    },
+    "/api/v1/collectors": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "summary": "List Collectors",
+        "operationId": "list_collectors_api_v1_collectors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CollectorOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Collectors Api V1 Collectors Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/collectors/{collector_id}": {
+      "patch": {
+        "tags": [
+          "live"
+        ],
+        "summary": "Set Collector Mode",
+        "description": "Switch between observation and inference (inference only through the gate).",
+        "operationId": "set_collector_mode_api_v1_collectors__collector_id__patch",
+        "parameters": [
+          {
+            "name": "collector_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Collector Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectorModeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live/status": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "summary": "Live Status",
+        "operationId": "live_status_api_v1_live_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveStatusOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/live/flows": {
+      "get": {
+        "tags": [
+          "live"
+        ],
+        "summary": "Recent Flows",
+        "description": "The latest flows received (kept in memory, newest first); for observation.",
+        "operationId": "recent_flows_api_v1_live_flows_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecentFlowOut"
+                  },
+                  "type": "array",
+                  "title": "Response Recent Flows Api V1 Live Flows Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ingest/flows": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest Flows",
+        "description": "Validate a batch and queue it for scoring. Never waits for the model.",
+        "operationId": "ingest_flows_api_v1_ingest_flows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestFlowsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestFlowsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ingest/heartbeat": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Heartbeat",
+        "operationId": "heartbeat_api_v1_ingest_heartbeat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeartbeatOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2835,6 +3096,118 @@
         ],
         "title": "Body_upload_dataset_api_v1_datasets_analyses_post"
       },
+      "CollectorModeIn": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "inference"
+            ],
+            "title": "Mode"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "CollectorModeIn"
+      },
+      "CollectorOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "inference"
+            ],
+            "title": "Mode"
+          },
+          "online": {
+            "type": "boolean",
+            "title": "Online",
+            "default": false
+          },
+          "last_heartbeat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heartbeat At"
+          },
+          "records_received": {
+            "type": "integer",
+            "title": "Records Received"
+          },
+          "records_rejected": {
+            "type": "integer",
+            "title": "Records Rejected"
+          },
+          "records_dropped": {
+            "type": "integer",
+            "title": "Records Dropped"
+          },
+          "records_processed": {
+            "type": "integer",
+            "title": "Records Processed"
+          },
+          "alerts_created": {
+            "type": "integer",
+            "title": "Alerts Created"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "heartbeat_stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Heartbeat Stats"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "mode",
+          "last_heartbeat_at",
+          "records_received",
+          "records_rejected",
+          "records_dropped",
+          "records_processed",
+          "alerts_created",
+          "last_error",
+          "heartbeat_stats",
+          "created_at"
+        ],
+        "title": "CollectorOut"
+      },
       "ComponentStatus": {
         "properties": {
           "status": {
@@ -3448,6 +3821,78 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "HeartbeatIn": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "degraded",
+              "stopping"
+            ],
+            "title": "Status"
+          },
+          "stats": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "object",
+            "maxProperties": 30,
+            "title": "Stats"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HeartbeatIn"
+      },
+      "HeartbeatOut": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "inference"
+            ],
+            "title": "Mode"
+          },
+          "live_scoring": {
+            "type": "boolean",
+            "title": "Live Scoring"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "live_scoring"
+        ],
+        "title": "HeartbeatOut"
+      },
       "IncidentBrief": {
         "properties": {
           "id": {
@@ -3817,6 +4262,76 @@
         "type": "object",
         "title": "IncidentUpdate"
       },
+      "IngestFlowsIn": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "replay"
+            ],
+            "title": "Source"
+          },
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Records"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "records"
+        ],
+        "title": "IngestFlowsIn"
+      },
+      "IngestFlowsOut": {
+        "properties": {
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "dropped": {
+            "type": "integer",
+            "title": "Dropped"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "inference"
+            ],
+            "title": "Mode"
+          },
+          "rejection_examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rejection Examples"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accepted",
+          "rejected",
+          "dropped",
+          "mode",
+          "rejection_examples"
+        ],
+        "title": "IngestFlowsOut"
+      },
       "IpSummaryOut": {
         "properties": {
           "ip": {
@@ -3950,6 +4465,120 @@
           "alert_ids"
         ],
         "title": "LinkAlerts"
+      },
+      "LiveApprovalIn": {
+        "properties": {
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "approved"
+        ],
+        "title": "LiveApprovalIn"
+      },
+      "LiveStatusOut": {
+        "properties": {
+          "live_model_profile": {
+            "type": "string",
+            "title": "Live Model Profile"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alert_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Threshold"
+          },
+          "compatible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compatible"
+          },
+          "unavailable_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unavailable Features"
+          },
+          "approximate_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Approximate Features"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "model_ready": {
+            "type": "boolean",
+            "title": "Model Ready"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "collectors_total": {
+            "type": "integer",
+            "title": "Collectors Total"
+          },
+          "collectors_online": {
+            "type": "integer",
+            "title": "Collectors Online"
+          },
+          "collectors_scoring": {
+            "type": "integer",
+            "title": "Collectors Scoring"
+          },
+          "queue_batches": {
+            "type": "integer",
+            "title": "Queue Batches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "live_model_profile",
+          "model",
+          "alert_threshold",
+          "compatible",
+          "unavailable_features",
+          "approximate_features",
+          "approved",
+          "model_ready",
+          "reason",
+          "collectors_total",
+          "collectors_online",
+          "collectors_scoring",
+          "queue_batches"
+        ],
+        "title": "LiveStatusOut"
       },
       "LivenessOut": {
         "properties": {
@@ -4447,6 +5076,191 @@
           "components"
         ],
         "title": "ReadinessOut"
+      },
+      "RecentFlowOut": {
+        "properties": {
+          "collector_id": {
+            "type": "integer",
+            "title": "Collector Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "replay"
+            ],
+            "title": "Source"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "src_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src Ip"
+          },
+          "src_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Src Port"
+          },
+          "dst_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dst Ip"
+          },
+          "dst_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dst Port"
+          },
+          "proto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proto"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "dur": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dur"
+          },
+          "spkts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spkts"
+          },
+          "dpkts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dpkts"
+          },
+          "sbytes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sbytes"
+          },
+          "dbytes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dbytes"
+          },
+          "scored": {
+            "type": "boolean",
+            "title": "Scored"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "collector_id",
+          "source",
+          "observed_at",
+          "src_ip",
+          "src_port",
+          "dst_ip",
+          "dst_port",
+          "proto",
+          "service",
+          "state",
+          "dur",
+          "spkts",
+          "dpkts",
+          "sbytes",
+          "dbytes",
+          "scored"
+        ],
+        "title": "RecentFlowOut"
       },
       "RecommendationOut": {
         "properties": {

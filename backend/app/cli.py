@@ -71,6 +71,27 @@ def cmd_activate_model(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_create_collector(args: argparse.Namespace) -> int:
+    from app.services.live.collectors import create_collector
+
+    with default_sessionmaker()() as db:
+        collector, token = create_collector(db, AuditContext.system("cli"), args.name)
+    print(f"Created collector '{collector.name}' (id {collector.id}) in observation mode.")
+    print("Its token is shown only once. Put it in .env as COLLECTOR_TOKEN:")
+    print(token)
+    return 0
+
+
+def cmd_rotate_collector_token(args: argparse.Namespace) -> int:
+    from app.services.live.collectors import rotate_token
+
+    with default_sessionmaker()() as db:
+        token = rotate_token(db, AuditContext.system("cli"), args.collector_id)
+    print("New token (the old one stops working now; shown only once):")
+    print(token)
+    return 0
+
+
 def openapi_document() -> str:
     """The API schema as committed in ``frontend/openapi.json`` (frontend types come from it)."""
     import json
@@ -124,6 +145,14 @@ def main(argv: list[str] | None = None) -> int:
     p_act = sub.add_parser("activate-model", help="Make a registered model active")
     p_act.add_argument("model_id", type=int)
     p_act.set_defaults(handler=cmd_activate_model)
+
+    p_col = sub.add_parser("create-collector", help="Register a live collector; prints its token")
+    p_col.add_argument("--name", required=True)
+    p_col.set_defaults(handler=cmd_create_collector)
+
+    p_rot = sub.add_parser("rotate-collector-token", help="Replace a collector's token")
+    p_rot.add_argument("collector_id", type=int)
+    p_rot.set_defaults(handler=cmd_rotate_collector_token)
 
     p_api = sub.add_parser(
         "export-openapi", help="Write the API schema used to generate the frontend types"

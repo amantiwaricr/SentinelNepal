@@ -113,6 +113,26 @@ export interface AuditLogOut {
   details: Record<string, unknown>
 }
 
+export interface CollectorModeIn {
+  mode: 'observation' | 'inference'
+}
+
+export interface CollectorOut {
+  id: number
+  name: string
+  mode: 'observation' | 'inference'
+  online?: boolean
+  last_heartbeat_at: string | null
+  records_received: number
+  records_rejected: number
+  records_dropped: number
+  records_processed: number
+  alerts_created: number
+  last_error: string | null
+  heartbeat_stats: Record<string, unknown>
+  created_at: string
+}
+
 export interface ComponentStatus {
   status: 'ok' | 'pending' | 'unavailable' | 'unknown' | 'not_configured'
   detail?: string | null
@@ -225,6 +245,17 @@ export interface HTTPValidationError {
   detail?: ValidationError[]
 }
 
+export interface HeartbeatIn {
+  status: 'running' | 'degraded' | 'stopping'
+  stats?: Record<string, number | string>
+  last_error?: string | null
+}
+
+export interface HeartbeatOut {
+  mode: 'observation' | 'inference'
+  live_scoring: boolean
+}
+
 export interface IncidentBrief {
   id: number
   title: string
@@ -279,6 +310,19 @@ export interface IncidentUpdate {
   assigned_to?: number | null
 }
 
+export interface IngestFlowsIn {
+  source: 'live' | 'replay'
+  records: Record<string, unknown>[]
+}
+
+export interface IngestFlowsOut {
+  accepted: number
+  rejected: number
+  dropped: number
+  mode: 'observation' | 'inference'
+  rejection_examples: string[]
+}
+
 export interface IpSummaryOut {
   ip: string
   version: number
@@ -299,6 +343,26 @@ export interface IpSummaryOut {
 
 export interface LinkAlerts {
   alert_ids: number[]
+}
+
+export interface LiveApprovalIn {
+  approved: boolean
+}
+
+export interface LiveStatusOut {
+  live_model_profile: string
+  model: ModelBrief | null
+  alert_threshold: number | null
+  compatible: boolean | null
+  unavailable_features: string[]
+  approximate_features: string[]
+  approved: boolean
+  model_ready: boolean
+  reason: string
+  collectors_total: number
+  collectors_online: number
+  collectors_scoring: number
+  queue_batches: number
 }
 
 export interface LivenessOut {
@@ -358,6 +422,25 @@ export interface ReadinessOut {
   version: string
   environment: string
   components: Record<string, ComponentStatus>
+}
+
+export interface RecentFlowOut {
+  collector_id: number
+  source: 'live' | 'replay'
+  observed_at: string | null
+  src_ip: string | null
+  src_port: number | null
+  dst_ip: string | null
+  dst_port: number | null
+  proto: string | null
+  service: string | null
+  state: string | null
+  dur: number | null
+  spkts: number | null
+  dpkts: number | null
+  sbytes: number | null
+  dbytes: number | null
+  scored: boolean
 }
 
 export interface RecommendationOut {

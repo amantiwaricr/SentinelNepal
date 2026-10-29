@@ -83,6 +83,17 @@ class Settings(BaseSettings):
     # Safety cap: beyond this, further alerts in one run are counted but not stored.
     max_alerts_per_run: int = Field(default=100_000, ge=1)
 
+    # --- Live monitoring (Phase 6) ---
+    # The model used for live and replayed flows. TShark-built flows can supply every
+    # feature of "full_no_ttl"; the compatibility gate refuses models they cannot supply.
+    live_model_profile: str = "full_no_ttl"
+    live_worker_enabled: bool = True
+    # Bounded queue between the ingest endpoint and the live worker, in batches of up to
+    # 500 records. When full, new batches are dropped and counted, never blocking the API.
+    ingest_queue_batches: int = Field(default=100, ge=1)
+    # A collector without a heartbeat for this long is shown as offline.
+    collector_offline_seconds: int = Field(default=30, ge=5)
+
     # --- Firewall requests (execution arrives in Phase 7) ---
     firewall_allow_self_approval: bool = False
     firewall_analysts_may_request: bool = False

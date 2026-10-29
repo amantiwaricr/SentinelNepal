@@ -198,10 +198,23 @@ def model_artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]
         version="synthetic",
     )
     select_threshold(result.artifact_dir, data, root / "reports", latency_calls=5)
+    # The live profile (no TTL features), for Phase 6 live-scoring tests.
+    live = train_model(
+        data,
+        root / "artifacts",
+        root / "reports",
+        profile_name="full_no_ttl",
+        rf_estimators=15,
+        n_jobs=1,
+        candidates=(CandidateSpec("random_forest", "random_forest", None),),
+        version="synthetic",
+    )
+    select_threshold(live.artifact_dir, data, root / "reports", latency_calls=5)
     return {
         "artifacts": root / "artifacts",
         "reports": root / "reports",
         "artifact_dir": result.artifact_dir,
+        "live_artifact_dir": live.artifact_dir,
         "data": data,
     }
 
@@ -219,6 +232,35 @@ def registered_model(
         activate=True,
         allow_synthetic=True,
     )
+
+
+@pytest.fixture
+def live_model(
+    db: Session, app_settings: Settings, model_artifacts: dict[str, Path]
+) -> ModelVersion:
+    """A synthetic model for the live profile, active but not yet approved for live use."""
+    return register_model(
+        db,
+        app_settings,
+        AuditContext.system("test"),
+        model_artifacts["live_artifact_dir"],
+        reports_dir=model_artifacts["reports"],
+        activate=True,
+        allow_synthetic=True,
+    )
+
+
+def drain_live_queue(app: FastAPI) -> list[object]:
+    """Process queued live batches synchronously (the live worker thread is off in tests)."""
+    from app.services.live.ingest import process_batch, publish_batch_events
+
+    results = []
+    while (batch := app.state.ingest_queue.take(timeout=0)) is not None:
+        with app.state.sessionmaker() as db:
+            result = process_batch(db, app.state.settings, app.state.predictors, batch)
+        publish_batch_events(app.state.events, app.state.recent_flows, batch, result)
+        results.append(result)
+    return results
 
 
 def run_queued_analyses(app: FastAPI) -> None:

@@ -9,6 +9,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 PUBLIC, ANALYST, ADMIN = "public", "analyst", "admin"
+# Collector endpoints take a bearer token, never a user session.
+COLLECTOR = "collector"
 
 EXPECTED: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/health/live"): PUBLIC,
@@ -53,6 +55,13 @@ EXPECTED: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/firewall/requests/{request_id}/revoke"): ADMIN,
     ("GET", "/api/v1/firewall/status"): ADMIN,
     ("GET", "/api/v1/audit-logs"): ADMIN,
+    ("POST", "/api/v1/models/{model_id}/live-approval"): ADMIN,
+    ("POST", "/api/v1/ingest/flows"): COLLECTOR,
+    ("POST", "/api/v1/ingest/heartbeat"): COLLECTOR,
+    ("GET", "/api/v1/collectors"): ANALYST,
+    ("PATCH", "/api/v1/collectors/{collector_id}"): ADMIN,
+    ("GET", "/api/v1/live/status"): ANALYST,
+    ("GET", "/api/v1/live/flows"): ANALYST,
 }
 
 PATH_VALUES = {"ip": "10.0.0.1"}
@@ -70,7 +79,15 @@ def _api_routes(app: FastAPI) -> set[tuple[str, str]]:
 
 
 def _url(path: str) -> str:
-    for name in ("user_id", "model_id", "run_id", "alert_id", "incident_id", "request_id"):
+    for name in (
+        "user_id",
+        "model_id",
+        "run_id",
+        "alert_id",
+        "incident_id",
+        "request_id",
+        "collector_id",
+    ):
         path = path.replace("{" + name + "}", "1")
     return path.replace("{ip}", PATH_VALUES["ip"])
 
@@ -91,6 +108,10 @@ def test_role_enforcement(
         return client.request(method, url, **kwargs).status_code  # type: ignore[arg-type]
 
     anonymous = status(anon)
+    if required == COLLECTOR:
+        # A signed-in user's cookie is not a collector token.
+        assert {anonymous, status(analyst), status(admin)} == {401}, f"{method} {path}"
+        return
     if required == PUBLIC:
         assert anonymous not in (401, 403)
     else:

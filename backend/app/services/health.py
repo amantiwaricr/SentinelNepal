@@ -20,6 +20,7 @@ from app.core.errors import AppError
 from app.models.analysis import DatasetAnalysisRun
 from app.models.collector import Collector
 from app.schemas.health import ComponentStatus
+from app.services.live.collectors import is_online
 from app.services.models import active_model, artifact_path
 
 logger = logging.getLogger(__name__)
@@ -111,9 +112,19 @@ def check_components(
     components["firewall_helper"] = ComponentStatus(
         status="not_configured", detail="The firewall helper is added in Phase 7"
     )
-    collectors = db.scalar(select(func.count()).select_from(Collector)) or 0
-    components["collectors"] = ComponentStatus(
-        status="not_configured" if collectors == 0 else "unknown",
-        detail="No collectors registered" if collectors == 0 else f"{collectors} registered",
-    )
+    rows = db.scalars(select(Collector).order_by(Collector.name)).all()
+    offline = [c.name for c in rows if not is_online(c, settings)]
+    if not rows:
+        components["collectors"] = ComponentStatus(
+            status="not_configured", detail="No collectors registered"
+        )
+    elif offline:
+        components["collectors"] = ComponentStatus(
+            status="unavailable",
+            detail=f"No heartbeat for {settings.collector_offline_seconds} s: {', '.join(offline)}",
+        )
+    else:
+        components["collectors"] = ComponentStatus(
+            status="ok", detail=f"{len(rows)} online ({', '.join(c.name for c in rows)})"
+        )
     return components

@@ -5,10 +5,12 @@ from app.api.v1 import (
     audit_logs,
     auth,
     datasets,
+    events,
     firewall,
     health,
     incidents,
     investigation,
+    live,
     models,
     recommendations,
     users,
@@ -27,5 +29,8 @@ for module in (
     recommendations,
     firewall,
     audit_logs,
+    live,
+    events,
 ):
     api_router.include_router(module.router)
+api_router.include_router(live.ingest_router)

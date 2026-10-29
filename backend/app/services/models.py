@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from sentinel_ml.artifacts import MODEL_FILE, ArtifactError, load_manifest
 from sentinel_ml.features.dataset import sha256_file
+from sentinel_ml.live.mapping import check_compatibility
 from sentinel_ml.schema import NORMAL
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -184,3 +185,37 @@ def active_model(db: Session, profile: str) -> ModelVersion | None:
     return db.scalar(
         select(ModelVersion).where(ModelVersion.feature_profile == profile, ModelVersion.is_active)
     )
+
+
+def set_live_approval(
+    db: Session, ctx: AuditContext, model_id: int, approved: bool
+) -> ModelVersion:
+    """Approve (or withdraw) a model for scoring live TShark flows. Approval is refused when
+    the model needs a feature live traffic cannot supply."""
+    model = db.get(ModelVersion, model_id)
+    if model is None:
+        raise AppError("not_found", "Model not found", 404)
+    report = check_compatibility(model.features)
+    if approved and not report.compatible:
+        audit.record(
+            db,
+            ctx,
+            "model.live_approval",
+            target_type="model_version",
+            target_id=model.id,
+            outcome="denied",
+            details={"approved": True, "unavailable": report.unavailable},
+        )
+        db.commit()
+        raise AppError("incompatible_model", report.reason, 409)
+    model.live_inference_approved = approved
+    audit.record(
+        db,
+        ctx,
+        "model.live_approval",
+        target_type="model_version",
+        target_id=model.id,
+        details={"approved": approved, "approximate_features": report.approximate},
+    )
+    db.commit()
+    return model

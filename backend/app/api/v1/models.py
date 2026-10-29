@@ -3,6 +3,7 @@ from sqlalchemy import select
 
 from app.api.deps import AdminUser, AnalystUser, Audit, DbSession
 from app.models.model_version import ModelVersion
+from app.schemas.live import LiveApprovalIn
 from app.schemas.ops import ModelVersionOut
 from app.services import models
 
@@ -24,3 +25,13 @@ def active_models(_: AnalystUser, db: DbSession) -> list[ModelVersionOut]:
 @router.post("/{model_id}/activate", response_model=ModelVersionOut)
 def activate(model_id: int, _: AdminUser, ctx: Audit, db: DbSession) -> ModelVersionOut:
     return ModelVersionOut.model_validate(models.activate_model(db, ctx, model_id))
+
+
+@router.post("/{model_id}/live-approval", response_model=ModelVersionOut)
+def live_approval(
+    model_id: int, body: LiveApprovalIn, _: AdminUser, ctx: Audit, db: DbSession
+) -> ModelVersionOut:
+    """Approve or withdraw a model for scoring live traffic (compatibility checked, audited)."""
+    return ModelVersionOut.model_validate(
+        models.set_live_approval(db, ctx, model_id, body.approved)
+    )
