@@ -1,9 +1,41 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Query
 from pydantic import BaseModel, ConfigDict
 
 MAX_PAGE_SIZE = 100
+
+# Literal types for API schemas, so clients see the allowed values. They mirror the tuples
+# in app/models/enums.py (the database CHECK constraints); a unit test keeps them equal.
+AlertSource = Literal["dataset", "live", "replay"]
+AlertStatus = Literal["new", "acknowledged", "linked", "dismissed"]
+AttackCategory = Literal[
+    "Analysis",
+    "Backdoor",
+    "DoS",
+    "Exploits",
+    "Fuzzers",
+    "Generic",
+    "Reconnaissance",
+    "Shellcode",
+    "Worms",
+]
+Severity = Literal["low", "medium", "high", "critical"]
+IncidentStatus = Literal["new", "under_investigation", "confirmed", "false_positive", "resolved"]
+FirewallStatus = Literal[
+    "pending",
+    "approved",
+    "rejected",
+    "executing",
+    "active",
+    "failed",
+    "expired",
+    "revoke_requested",
+    "revoked",
+    "unknown",
+]
+AuditActorType = Literal["user", "system", "collector", "helper", "anonymous"]
+AuditOutcome = Literal["success", "failure", "denied"]
 
 
 class StrictModel(BaseModel):

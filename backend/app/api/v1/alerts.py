@@ -8,11 +8,18 @@ from sqlalchemy.dialects.postgresql import INET
 from app.api.deps import AnalystUser, Audit, DbSession
 from app.core.errors import AppError
 from app.models.alert import Alert
-from app.models.enums import ALERT_STATUSES, PREDICTED_CATEGORIES, SEVERITIES
 from app.models.incident import Incident, IncidentAlert
 from app.models.model_version import ModelVersion
 from app.models.recommendation import Recommendation
-from app.schemas.common import Page, PageParams, page_params
+from app.schemas.common import (
+    AlertSource,
+    AlertStatus,
+    AttackCategory,
+    Page,
+    PageParams,
+    Severity,
+    page_params,
+)
 from app.schemas.ops import (
     AlertDetail,
     AlertOut,
@@ -32,9 +39,6 @@ SORTS: dict[str, tuple[UnaryExpression[Any], ...]] = {
     "-attack_score": (Alert.attack_score.desc(), Alert.id.desc()),
     "attack_score": (Alert.attack_score.asc(), Alert.id.asc()),
 }
-Category = Literal[PREDICTED_CATEGORIES]  # type: ignore[valid-type]
-Severity = Literal[SEVERITIES]  # type: ignore[valid-type]
-Status = Literal[ALERT_STATUSES]  # type: ignore[valid-type]
 
 
 @router.get("", response_model=Page[AlertOut])
@@ -45,10 +49,10 @@ def list_alerts(
     src_ip: str | None = None,
     dst_ip: str | None = None,
     cidr: Annotated[str | None, Query(description="Source or destination within")] = None,
-    category: Category | None = None,
+    category: AttackCategory | None = None,
     severity: Severity | None = None,
-    status: Status | None = None,
-    source: Literal["dataset", "live", "replay"] | None = None,
+    status: AlertStatus | None = None,
+    source: AlertSource | None = None,
     run_id: int | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,

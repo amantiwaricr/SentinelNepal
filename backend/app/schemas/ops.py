@@ -5,7 +5,15 @@ from typing import Any, Literal
 
 from pydantic import IPvAnyAddress
 
-from app.schemas.common import OrmModel, StrictModel
+from app.schemas.common import (
+    AlertSource,
+    AlertStatus,
+    AttackCategory,
+    IncidentStatus,
+    OrmModel,
+    Severity,
+    StrictModel,
+)
 
 
 class ModelVersionOut(OrmModel):
@@ -55,7 +63,7 @@ class AnalysisRunOut(OrmModel):
 
 class AlertOut(OrmModel):
     id: int
-    source: str
+    source: AlertSource
     analysis_run_id: int | None
     model_version_id: int
     observed_at: datetime | None
@@ -65,10 +73,10 @@ class AlertOut(OrmModel):
     dst_port: int | None
     protocol: str | None
     service: str | None
-    predicted_category: str
+    predicted_category: AttackCategory
     attack_score: float  # 1 - score(Normal); uncalibrated, not a probability
-    severity: str
-    status: str
+    severity: Severity
+    status: AlertStatus
     created_at: datetime
 
 
@@ -91,7 +99,7 @@ class RecommendationOut(OrmModel):
 class IncidentBrief(OrmModel):
     id: int
     title: str
-    status: str
+    status: IncidentStatus
 
 
 class AlertDetail(AlertOut):

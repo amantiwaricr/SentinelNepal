@@ -7,19 +7,17 @@ from app.api.deps import AnalystUser, Audit, DbSession
 from app.models.alert import Alert
 from app.models.incident import Incident, IncidentAlert, InvestigationNote
 from app.models.user import User
-from app.schemas.common import Page, PageParams, page_params
+from app.schemas.common import IncidentStatus, Page, PageParams, Severity, page_params
 from app.schemas.ops import AlertOut
 from app.schemas.workflow import (
     AuditLogOut,
     IncidentCreate,
     IncidentDetail,
     IncidentOut,
-    IncidentStatus,
     IncidentUpdate,
     LinkAlerts,
     NoteCreate,
     NoteOut,
-    Severity,
 )
 from app.services import incidents
 

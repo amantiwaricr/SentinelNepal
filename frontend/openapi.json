@@ -1559,6 +1559,18 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected",
+                    "executing",
+                    "active",
+                    "failed",
+                    "expired",
+                    "revoke_requested",
+                    "revoked",
+                    "unknown"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2131,6 +2143,11 @@
           },
           "source": {
             "type": "string",
+            "enum": [
+              "dataset",
+              "live",
+              "replay"
+            ],
             "title": "Source"
           },
           "analysis_run_id": {
@@ -2230,6 +2247,17 @@
           },
           "predicted_category": {
             "type": "string",
+            "enum": [
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
             "title": "Predicted Category"
           },
           "attack_score": {
@@ -2238,10 +2266,22 @@
           },
           "severity": {
             "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
             "title": "Severity"
           },
           "status": {
             "type": "string",
+            "enum": [
+              "new",
+              "acknowledged",
+              "linked",
+              "dismissed"
+            ],
             "title": "Status"
           },
           "created_at": {
@@ -2305,6 +2345,11 @@
           },
           "source": {
             "type": "string",
+            "enum": [
+              "dataset",
+              "live",
+              "replay"
+            ],
             "title": "Source"
           },
           "analysis_run_id": {
@@ -2404,6 +2449,17 @@
           },
           "predicted_category": {
             "type": "string",
+            "enum": [
+              "Analysis",
+              "Backdoor",
+              "DoS",
+              "Exploits",
+              "Fuzzers",
+              "Generic",
+              "Reconnaissance",
+              "Shellcode",
+              "Worms"
+            ],
             "title": "Predicted Category"
           },
           "attack_score": {
@@ -2412,10 +2468,22 @@
           },
           "severity": {
             "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
             "title": "Severity"
           },
           "status": {
             "type": "string",
+            "enum": [
+              "new",
+              "acknowledged",
+              "linked",
+              "dismissed"
+            ],
             "title": "Status"
           },
           "created_at": {
@@ -2615,6 +2683,13 @@
           },
           "actor_type": {
             "type": "string",
+            "enum": [
+              "user",
+              "system",
+              "collector",
+              "helper",
+              "anonymous"
+            ],
             "title": "Actor Type"
           },
           "actor_user_id": {
@@ -2667,6 +2742,11 @@
           },
           "outcome": {
             "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "denied"
+            ],
             "title": "Outcome"
           },
           "ip_address": {
@@ -3085,6 +3165,18 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "executing",
+              "active",
+              "failed",
+              "expired",
+              "revoke_requested",
+              "revoked",
+              "unknown"
+            ],
             "title": "Status"
           },
           "duration_seconds": {
@@ -3299,6 +3391,13 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "new",
+              "under_investigation",
+              "confirmed",
+              "false_positive",
+              "resolved"
+            ],
             "title": "Status"
           }
         },

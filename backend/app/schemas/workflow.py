@@ -6,11 +6,16 @@ from typing import Any, Literal
 from pydantic import Field, IPvAnyAddress, IPvAnyNetwork
 
 from app.models.incident import MAX_NOTE_LENGTH
-from app.schemas.common import OrmModel, StrictModel
+from app.schemas.common import (
+    AuditActorType,
+    AuditOutcome,
+    FirewallStatus,
+    IncidentStatus,
+    OrmModel,
+    Severity,
+    StrictModel,
+)
 from app.schemas.ops import AlertOut
-
-Severity = Literal["low", "medium", "high", "critical"]
-IncidentStatus = Literal["new", "under_investigation", "confirmed", "false_positive", "resolved"]
 
 
 class IncidentCreate(StrictModel):
@@ -105,7 +110,7 @@ class FirewallRequestOut(OrmModel):
     alert_id: int | None
     incident_id: int | None
     requested_by: int
-    status: str
+    status: FirewallStatus
     duration_seconds: int
     dry_run: bool
     approved_by: int | None
@@ -132,13 +137,13 @@ class FirewallStatusOut(StrictModel):
 class AuditLogOut(OrmModel):
     id: int
     occurred_at: datetime
-    actor_type: str
+    actor_type: AuditActorType
     actor_user_id: int | None
     actor_label: str | None
     action: str
     target_type: str | None
     target_id: str | None
-    outcome: str
+    outcome: AuditOutcome
     ip_address: IPvAnyAddress | None
     request_id: str | None
     details: dict[str, Any]

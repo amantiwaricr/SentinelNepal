@@ -5,9 +5,8 @@ from sqlalchemy import func, select
 
 from app.api.deps import AdminUser, AnalystUser, AppSettings, Audit, DbSession
 from app.core.errors import AppError
-from app.models.enums import FIREWALL_STATUSES
 from app.models.firewall import FirewallActionResult, FirewallRequest
-from app.schemas.common import Page, PageParams, page_params
+from app.schemas.common import FirewallStatus, Page, PageParams, page_params
 from app.schemas.workflow import (
     FirewallActionResultOut,
     FirewallApprove,
@@ -44,10 +43,8 @@ def list_requests(
     _: AnalystUser,
     db: DbSession,
     paging: Annotated[PageParams, Depends(page_params)],
-    status: str | None = None,
+    status: FirewallStatus | None = None,
 ) -> Page[FirewallRequestOut]:
-    if status is not None and status not in FIREWALL_STATUSES:
-        raise AppError("validation_error", f"status must be one of {list(FIREWALL_STATUSES)}", 422)
     conditions = [FirewallRequest.status == status] if status else []
     total = db.scalar(select(func.count()).select_from(FirewallRequest).where(*conditions)) or 0
     rows = db.scalars(
