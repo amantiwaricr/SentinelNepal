@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-collector"
+version = "0.1.0"
+description = "SentinelNepal lab collector: TShark captures -> flow features -> backend ingest API"
+requires-python = ">=3.12"
+# Uses only the standard library plus sentinel-ml (installed from ../ml).
+dependencies = ["sentinel-ml"]
+
+[project.scripts]
+sentinel-collector = "sentinel_collector.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sentinel_collector*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+select = ["E", "F", "W", "I", "B", "UP", "S", "N", "SIM", "RUF", "PLW1514"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "../ml"
+packages = ["sentinel_collector"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "joblib.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

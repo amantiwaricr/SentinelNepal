@@ -174,6 +174,7 @@ def flow_record(flow: Flow, window: ConnectionWindow) -> dict[str, Any]:
     features.update(window.add(flow, features["service"]))
     return {
         "flow_id": f"{flow.proto}:{flow.src}:{flow.sport}:{flow.dst}:{flow.dport}:{flow.start:.6f}",
+        "feature_source": "tshark",
         "start_time": flow.start,
         "last_time": flow.last,
         "src_ip": flow.src,

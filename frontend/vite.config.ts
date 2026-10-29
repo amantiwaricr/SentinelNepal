@@ -13,7 +13,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api': { target: apiProxyTarget, changeOrigin: false },
+      // ws: true forwards the /api/v1/events WebSocket (live notifications) as well.
+      '/api': { target: apiProxyTarget, changeOrigin: false, ws: true },
     },
   },
   test: {

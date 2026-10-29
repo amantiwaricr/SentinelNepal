@@ -1,6 +1,10 @@
 # SentinelNepal development stack: PostgreSQL, a one-shot migration job, the API, and the
-# frontend dev server. The Zeek collector and the nftables firewall helper are NOT here: they
-# need host network access / CAP_NET_ADMIN and run natively on the isolated lab VM.
+# frontend dev server.
+#
+# The "lab" profile adds an isolated monitoring lab (Phase 6): a server and a client on an
+# internal network with no internet access, packet capture of the server's traffic, and the
+# collector. It runs only when asked for:  docker compose --profile lab up -d --build
+# See docs/lab-runbook.md. The nftables firewall helper (Phase 7) is not here.
 #
 # Usage:  cp .env.example .env  (edit the password)  then  docker compose up --build
 name: sentinelnepal
@@ -69,6 +73,75 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # --- Isolated monitoring lab (profile "lab") ---------------------------------------------
+
+  lab-server:
+    profiles: ["lab"]
+    build:
+      context: .
+      dockerfile: lab/server.Dockerfile
+    image: sentinelnepal-lab-server:dev
+    hostname: lab-server
+    networks: [lab]
+    restart: unless-stopped
+
+  lab-client:
+    profiles: ["lab"]
+    build:
+      context: .
+      dockerfile: lab/client.Dockerfile
+    image: sentinelnepal-lab-client:dev
+    hostname: lab-client
+    networks: [lab]
+    depends_on: [lab-server]
+    restart: unless-stopped
+
+  capture:
+    # dumpcap inside lab-server's network namespace: it sees exactly the server's traffic
+    # and nothing else (no host or internet interfaces). It runs as an unprivileged user;
+    # the only privilege is CAP_NET_RAW, through dumpcap's file capability. (That is why
+    # no-new-privileges is not set here: it would block the file capability.)
+    profiles: ["lab"]
+    build: &collector-build
+      context: .
+      dockerfile: collector/Dockerfile
+    image: sentinelnepal-collector:dev
+    network_mode: "service:lab-server"
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]
+    # 30-second files, at most 20 kept (dumpcap deletes the oldest); 512-byte snapshots keep
+    # headers and drop most payload. -p: no promiscuous mode.
+    command: >-
+      dumpcap -q -p -i eth0 -f "ip or ip6" -s 512 -b duration:30 -b files:20
+      -w /captures/lab.pcapng
+    volumes:
+      - captures:/captures
+    depends_on: [lab-server]
+    restart: unless-stopped
+
+  collector:
+    profiles: ["lab"]
+    build: *collector-build
+    image: sentinelnepal-collector:dev
+    environment:
+      # Created with: docker compose exec backend python -m app.cli create-collector --name lab-sensor
+      COLLECTOR_TOKEN: ${COLLECTOR_TOKEN:-}
+      SENTINEL_API_URL: http://backend:8000/api/v1
+      CAPTURE_DIR: /captures
+      STATE_FILE: /tmp/sentinel-collector.state
+    volumes:
+      - captures:/captures:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      capture:
+        condition: service_started
+    restart: unless-stopped
+
   frontend:
     build:
       context: .
@@ -83,6 +156,13 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+networks:
+  # The lab network has no route out: lab traffic cannot reach the host, the internet or
+  # the rest of the stack.
+  lab:
+    internal: true
+
 volumes:
   db-data:
   uploads:
+  captures:

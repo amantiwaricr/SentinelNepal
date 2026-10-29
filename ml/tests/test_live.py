@@ -231,6 +231,7 @@ def test_every_feature_except_ct_state_ttl_is_computed() -> None:
     record = flow_record(flow, ConnectionWindow())
     assert set(record["features"]) == set(ALL_FEATURES) - {"ct_state_ttl"}
     assert record["src_ip"] == C and record["dst_port"] == 80
+    assert record["feature_source"] == "tshark"
 
 
 @pytest.mark.skipif(shutil.which("tshark") is None, reason="tshark is not installed")
