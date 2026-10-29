@@ -1,12 +1,13 @@
 # SentinelNepal — Project Status
 
-_Last updated: 2026-10-28_
+_Last updated: 2026-10-29_
 
 ## Current phase
 
 **Phase 3 — Backend APIs, database, authentication, incidents: complete.** Next: Phase 4
-(frontend SOC dashboard). One Phase 3 task needs the team machine: choose the alert threshold
-for the real models with `sentinel-ml threshold` (see Next steps).
+(frontend SOC dashboard). The alert thresholds for the three real models were chosen on the
+validation split on the team machine (commit `07f3ff5`; see `docs/model-evaluation.md`).
+Registering the `full` model in a running backend is a per-installation step (see Next steps).
 
 ## Phase tracker
 
@@ -311,10 +312,10 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Next steps
 
-1. On the team machine: `git pull`, then for each real model run
-   `sentinel-ml threshold artifacts/<dir> --target-fpr 0.05` (validation split only), commit
-   `ml/reports/*/threshold.*`, and register the `full` model with
-   `python -m app.cli register-model … --reports-dir ../ml/reports --activate`.
+1. On each installation that has the real artifacts: register the `full` model with
+   `python -m app.cli register-model ../ml/artifacts/random_forest-full-20261028T135634Z
+   --reports-dir ../ml/reports --activate`. (Thresholds: done 2026-10-28, threshold 0.815,
+   validation FPR 4.92%, attack recall 90.25%.)
 2. Phase 4: build the dashboard pages on the Phase 3 API (login, alerts, investigation,
    incidents, firewall approvals, audit, model evaluation, health).
 3. Phase 4/5: label low-reliability predicted categories in the UI and recommendations.

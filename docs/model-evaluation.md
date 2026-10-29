@@ -108,8 +108,46 @@
 10. **Latency was measured with multi-threaded prediction** (`n_jobs=-1`), about 100 ms per
     single record (median), dominated by thread dispatch. The `full_no_ttl` measurement was
     noticeably slower and noisier, likely because the laptop was busy. Commit `d4efd1a`
-    later switched inference to a single thread; latency should be re-measured (without
-    re-scoring the test set) in Phase 3.
+    later switched inference to a single thread; it was re-measured on validation rows with
+    the threshold step (next section).
+
+## Alert threshold (Phase 3)
+
+`sentinel-ml threshold` chose an alert threshold for each selected model on the
+**validation split of the training file only**. The testing file was not read. A record
+raises an alert when its uncalibrated attack score (1 − score(Normal)) is at or above the
+threshold. The target was a 5% false-positive rate. Source:
+`ml/reports/<model>/threshold.json`, run on the team laptop on 2026-10-28.
+
+| Profile | Threshold | Validation FPR | Validation attack recall | Share alerted | Default-decision FPR / recall |
+|---|---|---|---|---|---|
+| `full` | 0.8150 | 4.92% | 90.25% | 49.16% | 16.85% / 99.51% |
+| `full_no_ttl` | 0.8150 | 4.91% | 90.27% | 49.16% | 17.00% / 99.57% |
+| `live_compatible` | 0.8196 | 4.99% | 90.43% | 49.36% | 16.02% / 99.29% |
+
+Validation: 21 548 rows (10 378 Normal) for `full` and `full_no_ttl`, 21 509 rows
+(10 339 Normal) for `live_compatible`. Each report also lists operating points for target
+rates of 1%, 2%, 10% and 20%.
+
+Single-threaded latency on validation rows:
+
+| Profile | Single record, median / p95 | Batch of 1000, median |
+|---|---|---|
+| `full` | 63.3 ms / 145.5 ms | 278.0 ms (≈3 600 records/s) |
+| `full_no_ttl` | 41.8 ms / 75.1 ms | 196.2 ms (≈5 100 records/s) |
+| `live_compatible` | 48.1 ms / 76.9 ms | 217.2 ms (≈4 600 records/s) |
+
+What this does and does not show:
+
+- On validation, the threshold cuts the false-positive rate from about 17% to 5%, at the
+  cost of attack recall falling from about 99.5% to about 90%.
+- Validation rows come from the same file as the training rows. The testing file is
+  shifted: at the default decision its false-positive rate was 39.7%, against 16.9% on
+  validation for `full`. The false-positive rate on the testing file at this threshold is
+  therefore expected to be **above 5%**. It has not been measured. If it is measured
+  later, it must be labelled a post-hoc analysis, and the threshold must not be re-tuned
+  on the result.
+- The threshold is an operating point on an uncalibrated score, not a probability.
 
 ## Consequences for SentinelNepal
 
