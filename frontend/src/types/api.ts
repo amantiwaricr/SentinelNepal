@@ -1,4 +1,28 @@
-/** Types mirroring backend response schemas (backend/app/schemas). */
+/**
+ * API types. Response and request shapes are generated from the backend's OpenAPI schema
+ * into api.gen.ts; this module re-exports them and adds the few names the generator cannot
+ * produce (the generic Page<T>, the error envelope, and aliases for inline unions).
+ */
+import type {
+  AlertOut,
+  AnalysisRunOut,
+  AuditLogOut,
+  ComponentStatus,
+  DashboardOut,
+  FirewallRequestOut,
+  IncidentOut,
+  ListAlertsQuery,
+  UserOut,
+} from './api.gen'
+
+export type * from './api.gen'
+
+export interface Page<T> {
+  items: T[]
+  page: number
+  page_size: number
+  total: number
+}
 
 export interface ApiErrorBody {
   error: {
@@ -9,23 +33,15 @@ export interface ApiErrorBody {
   }
 }
 
-export type ComponentState = 'ok' | 'pending' | 'unavailable' | 'unknown' | 'not_configured'
-
-export interface ComponentStatus {
-  status: ComponentState
-  detail: string | null
-}
-
-export interface LivenessOut {
-  status: 'ok'
-  service: string
-  version: string
-}
-
-export interface ReadinessOut {
-  status: 'ready' | 'not_ready'
-  service: string
-  version: string
-  environment: string
-  components: Record<string, ComponentStatus>
-}
+export type Role = UserOut['role']
+export type ComponentState = ComponentStatus['status']
+export type AlertSource = AlertOut['source']
+export type AlertStatus = AlertOut['status']
+export type AttackCategory = AlertOut['predicted_category']
+export type Severity = AlertOut['severity']
+export type IncidentStatus = IncidentOut['status']
+export type FirewallStatus = FirewallRequestOut['status']
+export type AnalysisStatus = AnalysisRunOut['status']
+export type AuditOutcome = AuditLogOut['outcome']
+export type DashboardSource = DashboardOut['source']
+export type AlertSort = NonNullable<ListAlertsQuery['sort']>

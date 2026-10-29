@@ -20,6 +20,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Fixed time zone so formatted timestamps are the same on every machine.
+    env: { TZ: 'UTC' },
     restoreMocks: true,
     unstubGlobals: true,
   },

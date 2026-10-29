@@ -1,6 +1,7 @@
 import {
   Activity,
   BrainCircuit,
+  FileSpreadsheet,
   FolderSearch,
   LayoutDashboard,
   Lightbulb,
@@ -11,10 +12,14 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import type { Role } from '../types/api'
+
 export interface NavItem {
   to: string
   label: string
   icon: LucideIcon
+  /** Hidden from other roles. The API enforces the same rule; this only tidies the menu. */
+  role?: Role
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -24,7 +29,12 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/incidents', label: 'Incidents', icon: FolderSearch },
   { to: '/recommendations', label: 'Recommendations', icon: Lightbulb },
   { to: '/firewall', label: 'Firewall Approvals', icon: ShieldBan },
-  { to: '/audit', label: 'Audit Logs', icon: ScrollText },
+  { to: '/datasets', label: 'Dataset Analysis', icon: FileSpreadsheet },
   { to: '/model', label: 'Model Evaluation', icon: BrainCircuit },
-  { to: '/system', label: 'System Health', icon: Activity },
+  { to: '/audit', label: 'Audit Logs', icon: ScrollText, role: 'admin' },
+  { to: '/system', label: 'System & Settings', icon: Activity },
 ]
+
+export function navItemsFor(role: Role): NavItem[] {
+  return NAV_ITEMS.filter((item) => !item.role || item.role === role)
+}

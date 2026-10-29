@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { mockFetchJson } from '../../test/helpers'
-import { ApiError, apiGet } from './client'
+import { ApiError, apiGet, apiPost, onUnauthorized, withQuery } from './client'
 
 describe('apiGet', () => {
   it('returns the JSON body on success and sends the API headers', async () => {
@@ -42,5 +42,52 @@ describe('apiGet', () => {
     await expect(apiGet('/health/ready', { acceptStatuses: [503] })).resolves.toEqual({
       status: 'not_ready',
     })
+  })
+})
+
+describe('request helpers', () => {
+  it('builds query strings without empty values', () => {
+    expect(withQuery('/alerts', { src_ip: '10.0.0.1', status: undefined, cidr: '', page: 2 })).toBe(
+      '/alerts?src_ip=10.0.0.1&page=2',
+    )
+    expect(withQuery('/alerts', {})).toBe('/alerts')
+  })
+
+  it('sends JSON bodies with a content type', async () => {
+    const fetchMock = mockFetchJson(200, { id: 1 })
+    await apiPost('/incidents', { title: 'x' })
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe('{"title":"x"}')
+    expect(init.headers).toMatchObject({ 'Content-Type': 'application/json' })
+  })
+
+  it('sends FormData as-is so the browser sets the multipart boundary', async () => {
+    const fetchMock = mockFetchJson(202, { id: 1 })
+    const form = new FormData()
+    form.append('file', new Blob(['a,b']), 'x.csv')
+    await apiPost('/datasets/analyses', form)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(init.body).toBe(form)
+    expect(init.headers).not.toHaveProperty('Content-Type')
+    expect(init.headers).toMatchObject({ 'X-Requested-With': 'SentinelNepal' })
+  })
+
+  it('returns nothing for 204 responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
+    await expect(apiPost('/auth/logout')).resolves.toBeUndefined()
+  })
+
+  it('notifies the registered handler on 401 and stops after unregistering', async () => {
+    const handler = vi.fn()
+    const remove = onUnauthorized(handler)
+    mockFetchJson(401, {
+      error: { code: 'unauthenticated', message: 'Sign in', details: null, request_id: null },
+    })
+    await expect(apiGet('/alerts')).rejects.toMatchObject({ status: 401 })
+    expect(handler).toHaveBeenCalledTimes(1)
+    remove()
+    await expect(apiGet('/alerts')).rejects.toMatchObject({ status: 401 })
+    expect(handler).toHaveBeenCalledTimes(1)
   })
 })
