@@ -58,6 +58,12 @@ def _value(value: object) -> str:
     return "not recorded" if value is None else str(value)
 
 
+def _count(value: int | None, noun: str) -> str:
+    if value is None:
+        return "not recorded"
+    return f"{value} {noun}" if value == 1 else f"{value} {noun}s"
+
+
 CHECKS: dict[str, EvidenceCheck] = {
     c.name: c
     for c in (
@@ -108,13 +114,13 @@ CHECKS: dict[str, EvidenceCheck] = {
             "repeated_from_source",
             f"At least {REPEATED_ALERTS} stored alerts from the same source",
             lambda f: (f.alerts_from_source or 0) >= REPEATED_ALERTS,
-            lambda f: f"{_value(f.alerts_from_source)} alerts",
+            lambda f: _count(f.alerts_from_source, "alert"),
         ),
         EvidenceCheck(
             "many_ports_from_source",
             f"Alerts from the same source to at least {MANY_PORTS} different destination ports",
             lambda f: (f.distinct_ports_from_source or 0) >= MANY_PORTS,
-            lambda f: f"{_value(f.distinct_ports_from_source)} ports",
+            lambda f: _count(f.distinct_ports_from_source, "port"),
         ),
         EvidenceCheck(
             "repeated_to_auth_service",

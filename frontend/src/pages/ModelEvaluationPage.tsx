@@ -18,9 +18,6 @@ import { formatCount, formatDateTime, formatPercent, formatScore } from '../lib/
 import { activateModel, listModels } from '../services/api/models'
 import type { ModelVersionOut } from '../types/api'
 
-/** Below this test-set precision a predicted category is flagged as unreliable. */
-const LOW_PRECISION = 0.5
-
 interface SplitMetrics {
   macro_f1: number
   attack_recall: number
@@ -104,7 +101,9 @@ function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated
   const threshold = (model.threshold_details ?? null) as ThresholdDetails | null
   const precision =
     metrics.test?.per_class_precision ?? metrics.validation?.per_class_precision ?? {}
-  const precisionSource = metrics.test ? 'test' : 'validation'
+  const precisionSource = model.precision_source ?? (metrics.test ? 'test' : 'validation')
+  // The backend decides which categories are unreliable (precision below its threshold).
+  const unreliable = new Set(model.low_precision_categories)
 
   return (
     <Panel
@@ -215,8 +214,8 @@ function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated
               {
                 key: 'note',
                 header: '',
-                render: ([name, p]) =>
-                  name !== 'Normal' && p < LOW_PRECISION ? (
+                render: ([name]) =>
+                  unreliable.has(name) ? (
                     <StatusBadge tone="warning" label="Unreliable label" />
                   ) : null,
               },
@@ -224,8 +223,8 @@ function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated
           />
           <p className="mt-2 text-xs text-slate-500">
             Precision is the share of records predicted as a class that really were that class.
-            Below {formatPercent(LOW_PRECISION, 0)}, most alerts with that suspected category belong
-            to another class.
+            Below 50%, most alerts with that suspected category belong to another class, so
+            recommendations never suggest containment for it.
           </p>
         </div>
       </div>

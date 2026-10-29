@@ -15,6 +15,7 @@ import { KeyValueList } from '../components/KeyValueList'
 import { LoadingState } from '../components/LoadingState'
 import { Notice } from '../components/Notice'
 import { PageHeader } from '../components/PageHeader'
+import { RecommendationCard } from '../components/RecommendationCard'
 import { Panel } from '../components/Panel'
 import { SeverityBadge } from '../components/SeverityBadge'
 import { SourceTag } from '../components/SourceTag'
@@ -236,6 +237,29 @@ function AlertView({ alert, onChanged }: { alert: AlertDetail; onChanged: () => 
             )}
           </Panel>
 
+          <Panel
+            title="Recommendations"
+            description={
+              <>
+                Rule-based suggestions; stronger actions appear only when the evidence supports
+                them.{' '}
+                <Link to="/recommendations" className="text-cyan-700 hover:underline">
+                  How rules work
+                </Link>
+              </>
+            }
+          >
+            {alert.recommendations.length === 0 ? (
+              <p className="text-sm text-slate-500">No recommendations for this alert.</p>
+            ) : (
+              <div className="space-y-3">
+                {alert.recommendations.map((r) => (
+                  <RecommendationCard key={r.id} recommendation={r} />
+                ))}
+              </div>
+            )}
+          </Panel>
+
           <EvidencePanel evidence={evidence} />
           <RelatedAlerts alert={alert} />
         </div>
@@ -290,25 +314,6 @@ function AlertView({ alert, onChanged }: { alert: AlertDetail; onChanged: () => 
                       tone={INCIDENT_STATUS_TONE[incident.status]}
                       label={INCIDENT_STATUS_LABELS[incident.status]}
                     />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-
-          <Panel title="Recommendations">
-            {alert.recommendations.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No recommendations stored for this alert. The recommendation engine is added in
-                Phase 5.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {alert.recommendations.map((r) => (
-                  <li key={r.id} className="text-sm">
-                    <p className="font-medium text-slate-900">{r.action}</p>
-                    <p className="text-slate-600">{r.reason}</p>
-                    <p className="mt-1 text-xs text-slate-500">Limitations: {r.limitations}</p>
                   </li>
                 ))}
               </ul>

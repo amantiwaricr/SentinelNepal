@@ -358,6 +358,17 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
   re-read every 3 s while queued or running. The WebSocket notification channel arrives with
   live ingest in Phase 6.
 
+### 8.6 As implemented in Phase 5
+
+- `GET /recommendations/rules` (analyst) publishes the rule catalogue. Recommendations are
+  generated on first read of an alert (`GET /alerts/{id}` or `GET /recommendations`) rather
+  than at analysis time, and stored once per rule (`uq_recommendations_alert_rule`), so
+  concurrent reads cannot duplicate them. See `docs/recommendations.md`.
+- `ModelVersionOut.low_precision_categories` and `precision_source` come from the recorded
+  per-class precision (threshold 50%), the single source for "unreliable category".
+- `BodySizeLimitMiddleware` (64 KiB JSON, upload limit for uploads) sits inside the request
+  context middleware; API responses carry a strict CSP, `no-store` and CORP headers.
+
 ## 9. Machine-learning pipeline
 
 ### 9.1 Dataset

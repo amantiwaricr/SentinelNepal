@@ -8,16 +8,19 @@ dataset, raises alerts for analyst review, suggests defensive measures, and lets
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
 
-> **Status:** Phases 1–4 complete: SOC dashboard on a backend API with authentication,
-> alerts, incidents, audit log and firewall *request* workflow; ML pipeline trained and
-> evaluated on UNSW-NB15. Recommendations (Phase 5), live monitoring (Phase 6) and firewall
-> execution (Phase 7) come later. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+> **Status:** Phases 1–5 complete: SOC dashboard on a backend API with authentication,
+> alerts, incidents, evidence-based recommendations, audit log and firewall *request*
+> workflow; ML pipeline trained and evaluated on UNSW-NB15; security review done. Live
+> monitoring (Phase 6) and firewall execution (Phase 7) come later. See
+> [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Implementation plan](docs/implementation-plan.md)
 - [Threat model](docs/threat-model.md)
+- [Security review](docs/security-review.md)
+- [Defensive recommendations](docs/recommendations.md)
 - [Model evaluation](docs/model-evaluation.md)
 - [Feature mapping (dataset → Zeek)](docs/feature-mapping.md)
 - [Project status](docs/PROJECT_STATUS.md)
@@ -149,7 +152,9 @@ is never loaded.
 - *Dashboard*: totals, activity, categories and frequent sources from stored data; switch
   between all, dataset and live/replay sources.
 - *Alerts*: filter by IP, CIDR, category, severity, status, source and time; open an alert
-  to see its evidence, investigate its addresses, open an incident or request a block.
+  to see its evidence and rule-based recommendations, investigate its addresses, open an
+  incident or request a block. *Recommendations* lists the rules
+  ([docs/recommendations.md](docs/recommendations.md)).
 - *Incidents*: assign, add notes, and move through the status workflow; the history comes
   from the audit log.
 - *Firewall Approvals* (admins): approve a request by typing its target again. Until

@@ -25,7 +25,15 @@ describe('AlertDetailsPage', () => {
       'href',
       '/ips?ip=192.0.2.10',
     )
-    expect(screen.getByText(/The recommendation engine is added in\s+Phase 5/)).toBeInTheDocument()
+    // Recommendations show their evidence, including what was missing.
+    expect(
+      screen.getByText('Inspect the targeted service at 198.51.100.20:80.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('exploit.inspect_target v1')).toBeInTheDocument()
+    expect(screen.getByText(/Missing:/).parentElement).toHaveTextContent(
+      /Missing: The model's recorded precision for this category/,
+    )
+    expect(screen.getByText('(20.0% on the test data)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Request block' })).toHaveAttribute(
       'href',
       '/firewall/new?target=192.0.2.10&alert_id=7',

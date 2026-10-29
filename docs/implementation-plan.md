@@ -115,6 +115,7 @@ limits, path traversal in filenames, oversized fields).
 
 Acceptance: as in the phase prompt — every recommendation lists evidence + limitations;
 unknown categories get "investigate further"; sensitive actions role-checked; security tests pass.
+Met 2026-10-29 (evidence in `PROJECT_STATUS.md`, `security-review.md`, `recommendations.md`).
 
 ### Phase 6 — Live monitoring (weeks 8–9)
 

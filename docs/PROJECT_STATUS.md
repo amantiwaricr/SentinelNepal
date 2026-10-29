@@ -4,9 +4,9 @@ _Last updated: 2026-10-29_
 
 ## Current phase
 
-**Phase 4 — Frontend SOC dashboard: complete.** Next: Phase 5 (recommendation engine and
-security hardening). Registering the real `full` model in a running backend is a
-per-installation step (see Next steps).
+**Phase 5 — Defense recommendations and security hardening: complete.** Next: Phase 6 (live
+network monitoring). Lab VM availability and written supervisor authorisation must be
+confirmed before live collection starts.
 
 ## Phase tracker
 
@@ -17,7 +17,7 @@ per-installation step (see Next steps).
 | 2 | Dataset processing and ML engine | Complete (real results; limitations documented) |
 | 3 | Backend APIs, DB, auth, incidents | Complete |
 | 4 | Frontend SOC dashboard | Complete |
-| 5 | Recommendations and hardening | Not started |
+| 5 | Recommendations and hardening | Complete |
 | 6 | Live network monitoring | Not started |
 | 7 | nftables approved blocking | Not started |
 | 8 | Integration, testing, documentation | Not started |
@@ -26,6 +26,90 @@ Phase 0 decisions recorded at approval: a different admin must approve each bloc
 (configurable for solo demos); only admins request blocks; server-side sessions in an
 HttpOnly cookie; team roles as in `implementation-plan.md` §2. Lab VM availability and
 written supervisor authorisation are still to be confirmed before Phase 6.
+
+## Phase 5 — completed work
+
+- **Recommendation engine** (`backend/app/services/recommendations/`, explained in
+  `docs/recommendations.md`): 11 versioned rules in code, grouped as DoS, reconnaissance,
+  exploit-like (Exploits, Shellcode, Backdoor, Worms), fuzzing/analysis, Generic, a labelled
+  brute-force-like heuristic, unknown categories, and a fallback. Each rule states its kind
+  (investigate, harden, contain), required evidence, priority, limitations and whether a
+  human must approve. Evidence comes only from stored data: addresses, port/service, score,
+  the model's top class, the model's recorded per-class precision, and counts of related
+  stored alerts. When evidence is missing, the stronger action is withheld and a
+  `fallback.investigate` recommendation names what is missing. Containment always needs a
+  recorded source, a strong score and a category with at least 50% recorded precision.
+- Recommendations are generated when an alert is first opened and stored once per rule
+  (migration `0003`, unique `alert_id` + `rule_id`), with the rule version and the evidence as
+  observed. `GET /recommendations/rules` publishes the catalogue; model listings include
+  `low_precision_categories`, used by the UI and the rules (one definition, in the backend).
+- **Frontend:** recommendation cards on the alert page (priority, approval need, rule and
+  version, action, reason, evidence checked with met/missing, limitations); the
+  Recommendations page lists the rule catalogue; the model page takes "unreliable label"
+  from the API.
+- **Hardening** (details and evidence in `docs/security-review.md`):
+  - request body limit: 64 KiB for JSON, the upload limit for uploads, checked from
+    `Content-Length` and while streaming (oversized uploads are no longer spooled to disk);
+  - API responses add `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`,
+    `Cache-Control: no-store`, `Cross-Origin-Resource-Policy: same-origin`;
+  - partitioned CSV uploads parse only known UNSW-NB15 columns;
+  - security tests for injection strings in every filter and at login, stored script
+    payloads, oversized fields and streamed uploads;
+  - dependency audit job in CI (`pip-audit`, `npm audit`); threat-model checklist updated.
+
+## Phase 5 — test results (actually run on 2026-10-29)
+
+| Check | Result |
+|---|---|
+| Backend `ruff format --check`, `ruff check`, `mypy` | clean |
+| Backend tests with PostgreSQL | **214 passed** (17 rule unit tests, 6 recommendation integration tests, 20 security integration tests, 4 new middleware tests) |
+| Backend tests without a database | 68 passed, 146 skipped |
+| `alembic check`; downgrade 0003 → 0002 → upgrade | no new operations; both directions ran |
+| ML `ruff`, `mypy`, `pytest` | clean; **140 passed** (new wide-file test) |
+| Frontend generated types, format, lint, typecheck | clean |
+| Frontend tests | **74 passed** (13 files) |
+| Frontend build | built |
+| `pip-audit 2.10.1` (backend and ml requirements, runtime and dev) | no known vulnerabilities |
+| `npm audit` (frontend) | 0 vulnerabilities |
+
+**Browser check** (real backend and PostgreSQL, Vite dev server, Playwright/Chromium;
+synthetic model and synthetic CSV with RFC 5737 documentation addresses; deleted
+afterwards):
+
+- The 300-row synthetic upload completed (300 valid, 204 alerts).
+- API responses in the browser carried the CSP, `no-store` and CORP headers; a 100 KB JSON
+  body sent from the signed-in page was refused with `413 payload_too_large`.
+- From source `192.0.2.10`:
+  - an Exploits alert got `exploit.inspect_target` and `exploit.contain` (needs approval),
+    plus `bruteforce_like.review_auth`, because the synthetic record's service was `ftp`;
+  - a DoS alert got `dos.review_load` and `dos.rate_limit`;
+  - a Generic alert got `generic.investigate`;
+  - a Reconnaissance alert got `recon.review_exposure` and a fallback stating that
+    `recon.watch_source` was withheld (the source had alerts to only 1 port).
+- The synthetic model's validation precision is about 100%, so containment appeared where
+  all other evidence was present. With the real `full` model, DoS, Shellcode, Fuzzers,
+  Backdoor and Analysis are below 50% on the testing file and never get containment.
+- The Recommendations page listed all 11 rules. No page errors.
+
+### Phase 5 acceptance
+
+- [x] Recommendations are tied to supported evidence: every recommendation stores its
+  required evidence and what was observed; unmet evidence withholds the action
+  (`test_recommendation_rules.py`, `test_recommendations.py`).
+- [x] Unknown categories receive cautious guidance (`unknown.investigate`, no blocking).
+- [x] No recommendation is presented as proof of an attack: every rule's limitations say so,
+  and a test rejects overclaiming words in rule text.
+- [x] Sensitive actions require appropriate permissions: harden and contain rules are
+  flagged for human approval; blocks still need an admin-approved firewall request;
+  authorisation matrix covers the new endpoint.
+- [x] Security tests cover common weaknesses (see `docs/security-review.md`).
+
+### Defects found and fixed during Phase 5
+
+- A body-size error raised inside the request stream was turned into a generic 400 by
+  FastAPI's body parsing; the middleware now sends the 413 itself.
+- Evidence text said "1 ports"; counts are now pluralised correctly.
+- Test setup: the streamed-upload test first ran without the analyst user it signs in as.
 
 ## Phase 4 — completed work
 
@@ -408,13 +492,15 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 - Rate limiting is in-memory and per process; it resets on restart (documented residual risk).
 - The application's database user owns the tables, so it could disable the audit trigger;
   production hardening (a separate non-owner role) is planned for Phase 8.
-- Multipart parsing may spool an oversized upload to a temporary file before the streamed
-  size check rejects it; a `Content-Length` pre-check limits honest clients only.
 - The analysis worker is single-process; running several API worker processes is unsupported.
 - Recommendation rules (Phase 5), live ingest and WebSocket events (Phase 6), and firewall
   execution (Phase 7) are not implemented; their endpoints and tables exist where planned.
 - The plan's "demo seed script" was replaced by `python -m app.cli create-user`.
-- A CSP header is not set yet (Phase 5 security review).
+- API responses have a strict CSP; the frontend page has none yet because the Vite dev
+  server needs inline scripts. The Phase 8 production build must add one
+  (`docs/security-review.md`).
+- Recommendations are generated when an alert is first opened, using the related-alert
+  counts at that moment; they are not regenerated when more alerts arrive later.
 - The frontend container runs the Vite dev server; a production static build is Phase 8.
 - Version choices: TypeScript is held at 6.0 because `typescript-eslint` 8.72 supports
   `<6.1`; React Router is held at 7.x (maintained) rather than 8.x to use a well-documented API.
@@ -424,11 +510,9 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Next steps
 
-1. On each installation that has the real artifacts: register the `full` model with
-   `python -m app.cli register-model ../ml/artifacts/random_forest-full-20261028T135634Z
-   --reports-dir ../ml/reports --activate` (Docker: `/models/…` and
-   `--reports-dir /model-reports`). Thresholds: done 2026-10-28, threshold 0.815,
-   validation FPR 4.92%, attack recall 90.25%.
-2. Phase 5: recommendation rule engine (evidence and limitations per rule, "investigate
-   further" for unreliable categories), security review against `threat-model.md`, CSP,
-   dependency audits, security tests.
+1. On each installation with the real artifacts, register the `full` model if not done yet
+   (see README). After pulling Phase 5, rebuild (`docker compose up -d --build`); the
+   `migrate` service applies migration `0003`. Existing alerts get recommendations when
+   opened.
+2. Phase 6: confirm the lab VM and written authorisation; then the Zeek collector, ingest
+   endpoint, compatibility gate for live inference, and WebSocket notifications.

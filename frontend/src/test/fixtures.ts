@@ -60,7 +60,51 @@ export const SYNTHETIC_ALERT_DETAIL: AlertDetail = {
     note: 'Model scores are uncalibrated; this alert is a prediction, not proof.',
   },
   model: { id: 1, name: 'random_forest', version: 'synthetic', feature_profile: 'full' },
-  recommendations: [],
+  recommendations: [
+    {
+      id: 1,
+      alert_id: 7,
+      rule_id: 'exploit.inspect_target',
+      rule_version: '1',
+      category: 'Exploits',
+      action: 'Inspect the targeted service at 198.51.100.20:80.',
+      reason: 'Synthetic reason text.',
+      required_evidence: ['destination_address'],
+      evidence_present: {
+        destination_address: {
+          met: true,
+          description: 'The destination IP address is recorded',
+          observed: '198.51.100.20',
+        },
+      },
+      priority: 'high',
+      limitations: 'Synthetic limitation: the alert is not proof.',
+      requires_human_approval: false,
+      created_at: '2026-10-28T10:05:00Z',
+    },
+    {
+      id: 2,
+      alert_id: 7,
+      rule_id: 'fallback.investigate',
+      rule_version: '1',
+      category: 'Exploits',
+      action: 'Investigate further before considering stronger action.',
+      reason:
+        'Stronger actions were not suggested because evidence is missing: exploit.contain (missing: reliable_category).',
+      required_evidence: ['reliable_category'],
+      evidence_present: {
+        reliable_category: {
+          met: false,
+          description: "The model's recorded precision for this category is at least 50%",
+          observed: '20.0% on the test data',
+        },
+      },
+      priority: 'low',
+      limitations: 'Synthetic limitation.',
+      requires_human_approval: false,
+      created_at: '2026-10-28T10:05:00Z',
+    },
+  ],
   incidents: [],
 }
 
