@@ -4,10 +4,9 @@ _Last updated: 2026-10-29_
 
 ## Current phase
 
-**Phase 3 — Backend APIs, database, authentication, incidents: complete.** Next: Phase 4
-(frontend SOC dashboard). The alert thresholds for the three real models were chosen on the
-validation split on the team machine (commit `07f3ff5`; see `docs/model-evaluation.md`).
-Registering the `full` model in a running backend is a per-installation step (see Next steps).
+**Phase 4 — Frontend SOC dashboard: complete.** Next: Phase 5 (recommendation engine and
+security hardening). Registering the real `full` model in a running backend is a
+per-installation step (see Next steps).
 
 ## Phase tracker
 
@@ -17,7 +16,7 @@ Registering the `full` model in a running backend is a per-installation step (se
 | 1 | Repository foundation | Complete (see acceptance below) |
 | 2 | Dataset processing and ML engine | Complete (real results; limitations documented) |
 | 3 | Backend APIs, DB, auth, incidents | Complete |
-| 4 | Frontend SOC dashboard | Not started |
+| 4 | Frontend SOC dashboard | Complete |
 | 5 | Recommendations and hardening | Not started |
 | 6 | Live network monitoring | Not started |
 | 7 | nftables approved blocking | Not started |
@@ -27,6 +26,117 @@ Phase 0 decisions recorded at approval: a different admin must approve each bloc
 (configurable for solo demos); only admins request blocks; server-side sessions in an
 HttpOnly cookie; team roles as in `implementation-plan.md` §2. Lab VM availability and
 written supervisor authorisation are still to be confirmed before Phase 6.
+
+## Phase 4 — completed work
+
+- **Typed API client generated from the backend schema.** `python -m app.cli export-openapi`
+  writes `frontend/openapi.json`. A backend unit test fails when that file is stale.
+  `npm run gen:api` (`frontend/scripts/gen-api-types.mjs`, a small purpose-built generator,
+  because `openapi-typescript` pins TypeScript 5) writes `src/types/api.gen.ts`, and CI runs
+  `npm run gen:api:check`. Response fields with fixed value sets (alert source, status,
+  severity and category; incident and firewall status; audit outcome) are now `Literal`
+  types in the API schema; a unit test keeps them equal to the database CHECK values.
+- **Backend additions:** `GET /api/v1/users/directory` (any signed-in user: id, username,
+  role, active flag) for assignment pickers and requester names; added to the
+  authorisation matrix.
+- **Authentication in the UI:** sign-in form; `/auth/me` on start-up; route guard
+  (`RequireAuth`) with a post-login redirect restricted to same-app paths; any 401 returns
+  to sign-in with "session ended"; sign-out. The session stays in the HttpOnly cookie:
+  nothing is stored in web storage (ESLint rule). Navigation hides the admin-only audit
+  page from analysts; the API enforces every rule regardless.
+- **Pages:** dashboard (stat cards, Recharts activity and category charts loaded lazily,
+  severity/status breakdowns, frequent source IPs, incidents, analysis runs, component
+  health, All / Dataset / Live source switch); alerts explorer (IP, CIDR, category,
+  severity, status, source, time filters in the URL; sorting; pagination); alert details
+  (connection, model assessment with threshold, top class scores, stored feature values,
+  related alerts, review status, incidents, recommendations); IP and subnet investigation;
+  incidents list and detail (create, edit, assign, status workflow limited to allowed
+  transitions with confirmation, notes, audit-based history); firewall approvals (list,
+  detail, new request prefilled from an alert, approve with typed target, reject with
+  reason, revoke; requester, status, expiry, execution result and reversal shown); audit
+  logs (admin); model evaluation (recorded validation/test metrics, threshold, per-class
+  precision with "unreliable label" below 50%, admin activation); dataset analysis (upload,
+  run list polled while a run is in progress); system & settings (readiness, components,
+  admin user management); recommendations (states that the engine is Phase 5).
+- **Honesty in the UI:** every alert shows a DATASET / REPLAY / LIVE tag; scores are labelled
+  uncalibrated and never shown as percentages; alert pages state "prediction, not proof";
+  no geolocation, ownership or threat intelligence anywhere; firewall pages state that
+  nothing is applied before Phase 7 and show "Applied" only when the API's `applied` is true.
+- **Accessibility:** labelled form controls, captioned tables, a modal dialog with focus
+  trap and Escape, keyboard-operable source switch, skip link, text alternatives for charts.
+
+## Phase 4 — test results (actually run on 2026-10-29)
+
+| Check | Command | Result |
+|---|---|---|
+| Generated types current | `npm run gen:api:check` | up to date |
+| Frontend format / lint / types | `npm run format:check && npm run lint && npm run typecheck` | clean |
+| Frontend tests | `npm test` | **73 passed** (12 files) |
+| Frontend build | `npm run build` | built; main chunk 379 kB (115 kB gzip), charts chunk 356 kB loaded only on the dashboard |
+| Backend lint / types | `ruff format --check . && ruff check . && mypy` | clean |
+| Backend tests (with PostgreSQL) | `TEST_DATABASE_URL=… pytest` | **166 passed** |
+| Backend tests (no database) | `pytest` | 47 passed, 119 skipped |
+| Migrations vs models | `alembic check` | no new upgrade operations |
+| ML | `ruff …; mypy; pytest` | 139 passed |
+
+Frontend tests use a route-based fake of the API (`src/test/mockApi.ts`) with hand-written,
+synthetic fixtures. They cover the route guard, sign-in failure and success, open-redirect
+refusal, session expiry, sign-out, role-based navigation, tables, pagination, the
+confirmation dialog (typed text, focus, Escape), alert filters in the URL, alert
+acknowledgement, incident creation from an alert, incident status change, assignment and
+notes (markup rendered as text), firewall approval with typed target, self-approval
+refusal, rejection reason, analyst view, request creation, dashboard figures and empty
+states, the source switch, upload as multipart, model activation, user creation and audit
+filters.
+
+**Browser walkthrough (real backend, PostgreSQL and Vite dev server; Playwright/Chromium;
+synthetic model and synthetic CSV using RFC 5737 documentation addresses).** Observed:
+
+1. A signed-out visit to `/alerts` showed the sign-in page; a wrong password showed
+   "Invalid username or password" with a request ID.
+2. After sign-in the browser held an `HttpOnly`, `SameSite=Strict` cookie on `/api`;
+   `localStorage`, `sessionStorage` and `document.cookie` were all empty.
+3. The fresh database showed empty states. Uploading the 300-row synthetic CSV completed
+   with 300 valid rows, 0 rejected and 204 alerts (synthetic model threshold 0.200); the
+   dashboard's total-alerts card showed 204; the Live view showed no live alerts.
+4. Filtering alerts by source `192.0.2.10` returned 41, equal to a direct database count.
+5. Alert → IP investigation → new incident → note (`<b>` shown as text) → assignment →
+   "Under investigation"; the incident history listed all four actions.
+6. The analyst's block request was refused ("Only administrators may request blocks");
+   `/audit` showed "Not available for your role".
+7. admin2 created the request; admin2's own approval was refused ("A different
+   administrator must approve this request"); admin1's approve button stayed disabled with
+   a wrong target and succeeded with the exact one. The list then showed "Approved (not
+   applied)", "No expiry (not applied)", "Not executed: no firewall helper (added in
+   Phase 7)", "Not revoked".
+8. The audit log listed every step, including the denied self-approval.
+9. At 390 px width there was no horizontal overflow.
+
+The browser console showed only the expected 401/403 responses (signed-out check, wrong
+password, refused requests). The synthetic model, CSV and database were deleted afterwards.
+
+### Phase 4 acceptance
+
+- [x] Login → dashboard (real API data) → alert details → create incident → add note →
+  change status → see audit entry (walkthrough steps 1–5 and 8; component tests).
+- [x] Firewall approvals page shows status, expiry, result and reversal; approval requires
+  typed confirmation (walkthrough step 7; tests).
+- [x] No hard-coded statistics: every figure comes from an API response (review; dashboard
+  test checks values from a synthetic response); empty states shown on a fresh database.
+- [x] Component tests for tables, filters, confirmation dialog and route guard;
+  keyboard-accessible forms (labels, focus trap, Escape).
+- Deferred: the WebSocket hook in the plan's Phase 4 task list moves to Phase 6, because the
+  backend has no WebSocket endpoint until live ingest exists. Dataset runs are polled over
+  REST while in progress.
+
+### Defects found and fixed during Phase 4
+
+- Two `banner` landmarks: page headers used `<header>` inside `main`; changed to `<div>`.
+- Helper functions exported from component files broke React fast refresh; moved to `lib/`.
+- The Recharts bundle made the main chunk 736 kB; charts are now loaded lazily.
+- Bottom dashboard row stretched panels to equal height; aligned to the top.
+- The first walkthrough read the result count before the filtered response arrived (a
+  script race, not an app bug); the script now waits for the response.
 
 ## Phase 3 — completed work
 
@@ -291,8 +401,10 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Known issues / limitations
 
-- The dashboard UI does not yet use the Phase 3 API (Phase 4); the login page is still a
-  placeholder.
+- The UI has no self-service password change; administrators reset passwords.
+- Dataset runs are refreshed by polling every 3 s while in progress; WebSocket notifications
+  arrive with live ingest in Phase 6.
+- The incident "add to incident" picker lists at most 100 incidents (API page size).
 - Rate limiting is in-memory and per process; it resets on restart (documented residual risk).
 - The application's database user owns the tables, so it could disable the audit trigger;
   production hardening (a separate non-owner role) is planned for Phase 8.
@@ -314,8 +426,9 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 1. On each installation that has the real artifacts: register the `full` model with
    `python -m app.cli register-model ../ml/artifacts/random_forest-full-20261028T135634Z
-   --reports-dir ../ml/reports --activate`. (Thresholds: done 2026-10-28, threshold 0.815,
-   validation FPR 4.92%, attack recall 90.25%.)
-2. Phase 4: build the dashboard pages on the Phase 3 API (login, alerts, investigation,
-   incidents, firewall approvals, audit, model evaluation, health).
-3. Phase 4/5: label low-reliability predicted categories in the UI and recommendations.
+   --reports-dir ../ml/reports --activate` (Docker: `/models/…` and
+   `--reports-dir /model-reports`). Thresholds: done 2026-10-28, threshold 0.815,
+   validation FPR 4.92%, attack recall 90.25%.
+2. Phase 5: recommendation rule engine (evidence and limitations per rule, "investigate
+   further" for unreliable categories), security review against `threat-model.md`, CSP,
+   dependency audits, security tests.

@@ -97,13 +97,14 @@ Acceptance:
 Tasks: typed API client (generated from OpenAPI or hand-written types checked in CI);
 auth context + protected routes; the 11 pages; shared components (DataTable, Pagination,
 SeverityBadge, StatusBadge, ConfirmDialog, EmptyState, ErrorState, LoadingState,
-SourceTag "LIVE"/"DATASET"); Recharts charts; WebSocket hook with reconnect.
+SourceTag "LIVE"/"DATASET"); Recharts charts; WebSocket hook with reconnect (moved to
+Phase 6, when the backend gains a WebSocket endpoint).
 
-Acceptance:
-- [ ] Login → dashboard (real API data) → alert details → create incident → add note → change status → see audit entry.
-- [ ] Firewall approvals page shows status, expiry, result, reversal; approve requires typed confirmation.
-- [ ] No hard-coded statistics (grep check + review); empty states shown on a fresh DB.
-- [ ] Component tests for tables, filters, confirm dialog, route guard; keyboard-accessible forms.
+Acceptance (met 2026-10-29; evidence in `PROJECT_STATUS.md`):
+- [x] Login → dashboard (real API data) → alert details → create incident → add note → change status → see audit entry.
+- [x] Firewall approvals page shows status, expiry, result, reversal; approve requires typed confirmation.
+- [x] No hard-coded statistics (review); empty states shown on a fresh DB.
+- [x] Component tests for tables, filters, confirm dialog, route guard; keyboard-accessible forms.
 
 ### Phase 5 — Recommendations and hardening (week 7)
 

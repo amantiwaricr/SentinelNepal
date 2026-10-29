@@ -343,6 +343,21 @@ Base path `/api/v1`. JSON everywhere. OpenAPI docs at `/api/docs` (disabled when
 - The authorisation matrix test enumerates every API route from the OpenAPI schema; an
   unclassified new route fails CI.
 
+### 8.5 As implemented in Phase 4
+
+- `GET /users/directory` (any signed-in user): id, username, role and active flag, for
+  assignment pickers and for showing who requested or approved an action. Login history
+  stays on the admin-only `GET /users`.
+- The OpenAPI schema is committed as `frontend/openapi.json`; the frontend's TypeScript
+  types are generated from it (`npm run gen:api`), and CI fails if either is stale. Fixed
+  value sets are `Literal` types in the schema, mirroring the database CHECK constraints.
+- The frontend never sees the session token (HttpOnly cookie). It learns who is signed in
+  from `GET /auth/me`; any 401 returns the user to the sign-in page. Route guards and hidden
+  menu items are convenience only; the API checks every request.
+- REST stays the source of truth. The dashboard has no WebSocket yet: dataset runs are
+  re-read every 3 s while queued or running. The WebSocket notification channel arrives with
+  live ingest in Phase 6.
+
 ## 9. Machine-learning pipeline
 
 ### 9.1 Dataset

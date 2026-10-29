@@ -212,7 +212,7 @@ function DashboardContent({ data }: { data: DashboardOut }) {
         </Panel>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <Panel title="Incidents by status" description="All incidents, any source">
           <CountList
             counts={data.incidents_by_status}

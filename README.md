@@ -8,10 +8,10 @@ dataset, raises alerts for analyst review, suggests defensive measures, and lets
 administrator approve temporary, reversible IP blocks in an isolated Ubuntu lab using
 nftables. Model output is treated as evidence for investigation, never as proof of an attack.
 
-> **Status:** Phases 1–3 complete: backend API with authentication, alerts, incidents,
-> audit log and firewall *request* workflow; ML pipeline trained and evaluated on UNSW-NB15.
-> The dashboard UI (Phase 4), live monitoring (Phase 6) and firewall execution (Phase 7) come
-> later. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+> **Status:** Phases 1–4 complete: SOC dashboard on a backend API with authentication,
+> alerts, incidents, audit log and firewall *request* workflow; ML pipeline trained and
+> evaluated on UNSW-NB15. Recommendations (Phase 5), live monitoring (Phase 6) and firewall
+> execution (Phase 7) come later. See [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Documentation
 
@@ -142,7 +142,21 @@ With Docker, `ml/artifacts` is mounted read-only at `/models` and `ml/reports` a
 The model's SHA-256 is stored at registration; a model file that changes on disk afterwards
 is never loaded.
 
-**3. Use the API** — interactive docs at http://localhost:8000/api/docs. Sign in with
+**3. Use the dashboard** at http://localhost:5173 and sign in. A typical workflow:
+
+- *Dataset Analysis*: upload a UNSW-NB15-format CSV; the run list updates while it is
+  analysed. Its alerts are tagged **DATASET** everywhere.
+- *Dashboard*: totals, activity, categories and frequent sources from stored data; switch
+  between all, dataset and live/replay sources.
+- *Alerts*: filter by IP, CIDR, category, severity, status, source and time; open an alert
+  to see its evidence, investigate its addresses, open an incident or request a block.
+- *Incidents*: assign, add notes, and move through the status workflow; the history comes
+  from the audit log.
+- *Firewall Approvals* (admins): approve a request by typing its target again. Until
+  Phase 7 nothing is applied; the page says so.
+- *Audit Logs* (admins), *Model Evaluation*, *System & Settings* (admins manage users here).
+
+**4. Use the API directly** — interactive docs at http://localhost:8000/api/docs. Sign in with
 `POST /api/v1/auth/login`; every state-changing request must send the header
 `X-Requested-With: SentinelNepal`. Upload a UNSW-NB15-format CSV to
 `POST /api/v1/datasets/analyses`; it is analysed in the background and its alerts appear
@@ -175,11 +189,20 @@ To confirm the ORM models and migrations agree: `alembic check`.
 
 ```bash
 cd frontend
+npm run gen:api:check # src/types/api.gen.ts matches openapi.json
 npm run format:check
 npm run lint          # includes bans on dangerouslySetInnerHTML and localStorage
 npm run typecheck
 npm test
 npm run build
+```
+
+When the API changes, regenerate the schema and the frontend types and commit both (a
+backend test and the CI check fail otherwise):
+
+```bash
+cd backend && python -m app.cli export-openapi
+cd ../frontend && npm run gen:api
 ```
 
 ### Continuous integration
