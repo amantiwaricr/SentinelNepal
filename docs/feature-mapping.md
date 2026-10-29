@@ -1,17 +1,27 @@
-# Feature mapping: UNSW-NB15 → live Zeek metadata
+# Feature mapping: UNSW-NB15 → live traffic
 
-> Status: **preliminary (Phase 2).** Derived from the dataset's published feature
-> descriptions and Zeek's documented log fields. It has **not** yet been verified against real
-> Zeek output; Phase 6 does that. Until then, live inference stays disabled (observation-only
-> mode) — see the compatibility gate in [architecture.md](architecture.md) §10.
+> Status: **Phase 6.** Live traffic is decoded by **TShark** (Wireshark's command-line tool)
+> and grouped into flows by SentinelNepal (`ml/sentinel_ml/live/`). The live model uses the
+> `full_no_ttl` profile. Every approximation below is a documented formula; none has been
+> validated against UNSW-NB15 ground truth, because the dataset's packet captures are not
+> part of this project. The earlier Zeek-based mapping is kept for reference.
 
 ## Why this matters
 
 The model learns from feature values that UNSW-NB15 computed with Argus and Bro (Zeek's
 predecessor) in a 2015 testbed. A live collector can only feed the model features it can
 actually compute. Where a feature cannot be computed, SentinelNepal does **not** substitute a
-made-up value; instead the `live_compatible` model is trained only on features that live
-traffic can provide.
+made-up value: a model that needs it cannot be approved for live use (the compatibility gate
+in [architecture.md](architecture.md) §10).
+
+## Why TShark rather than Zeek
+
+Zeek's default `conn.log` summarises each connection and leaves out TTL, TCP window,
+per-packet timing and handshake times, so only 27 of the 39 features were obtainable (the
+`live_compatible` profile). TShark reports those fields for every packet, so SentinelNepal
+can compute 38 of 39 and use the `full_no_ttl` model. TShark still does all packet decoding;
+SentinelNepal only groups its output fields into flows, the step Argus performed for the
+dataset. The price is that flow boundaries and several formulas are SentinelNepal's own.
 
 ## Availability levels
 
@@ -19,13 +29,66 @@ traffic can provide.
 |---|---|
 | exact | The same quantity is available directly. |
 | derived | Computed from available fields with the stated formula. |
-| approximate | A related quantity; must be validated before live use. |
-| unavailable | Not obtainable from default Zeek logs; excluded from `live_compatible`. |
+| approximate | A related quantity; Argus may compute it differently. |
+| unavailable | Cannot be obtained; a model needing it is refused for live use. |
 
-## Mapping table
+## TShark mapping (used for live monitoring)
 
-Single source of truth: `ml/sentinel_ml/schema.py` (`LIVE_FEATURE_MAP`). Regenerate this
-table with `sentinel-ml feature-table`; a test fails if it drifts from the code.
+Single source of truth: `ml/sentinel_ml/live/mapping.py`. Regenerate with
+`sentinel-ml feature-table --source tshark`; a test fails if this table drifts from the code.
+
+<!-- BEGIN GENERATED: sentinel-ml feature-table tshark -->
+| Dataset feature | TShark source | Transformation | Availability | Limitation | In `full_no_ttl` |
+|---|---|---|---|---|---|
+| `dur` | frame.time_epoch | last - first packet (s) | derived | Flow boundaries come from SentinelNepal's timeouts, not Argus's. | yes |
+| `proto` | ip.proto / ipv6.nxt | number -> dataset name; others 'unas' | approximate | Only IP traffic is captured; the dataset also has ARP and rarer protocols. | yes |
+| `service` | ports, http/ftp fields | HTTP/FTP seen, else server port -> name, else '-' | approximate | Port-based; the dataset labelled services with Bro's protocol detection. | yes |
+| `state` | tcp.flags, icmp.type | lossy map to Argus states (FIN, CON, REQ, RST, INT, ECO) | approximate | Argus has more states; mapping not validated. | yes |
+| `spkts` | packets src -> dst | count | exact | Depends on flow boundaries. | yes |
+| `dpkts` | packets dst -> src | count | exact | Depends on flow boundaries. | yes |
+| `sbytes` | ip.len (ipv6.plen + 40) | sum src -> dst | approximate | IP-level bytes; Argus byte accounting may differ. | yes |
+| `dbytes` | ip.len (ipv6.plen + 40) | sum dst -> src | approximate | IP-level bytes; Argus byte accounting may differ. | yes |
+| `sttl` | ip.ttl / ipv6.hlim | first packet src -> dst | approximate | Network-specific (UNSW-NB15 testbed hosts; 64 in the Docker lab); not used live. | no |
+| `dttl` | ip.ttl / ipv6.hlim | first packet dst -> src | approximate | Network-specific; excluded from the live model. | no |
+| `sload` | derived | sbytes * 8 / dur (0 if dur = 0) | derived | Inherits sbytes approximation. | yes |
+| `dload` | derived | dbytes * 8 / dur (0 if dur = 0) | derived | Inherits dbytes approximation. | yes |
+| `sloss` | tcp.analysis.retransmission | count src -> dst | approximate | TShark's retransmission analysis, not Argus's loss estimate. | yes |
+| `dloss` | tcp.analysis.retransmission | count dst -> src | approximate | TShark's retransmission analysis, not Argus's loss estimate. | yes |
+| `sinpkt` | frame.time_epoch | mean gap between src packets (ms) | derived | - | yes |
+| `dinpkt` | frame.time_epoch | mean gap between dst packets (ms) | derived | - | yes |
+| `sjit` | frame.time_epoch | std. deviation of src packet gaps (ms) | approximate | Argus's jitter formula is not published in the dataset. | yes |
+| `djit` | frame.time_epoch | std. deviation of dst packet gaps (ms) | approximate | Argus's jitter formula is not published in the dataset. | yes |
+| `swin` | tcp.window_size_value | first advertised window src -> dst | approximate | Raw window value; Argus's representation is unverified. | yes |
+| `dwin` | tcp.window_size_value | first advertised window dst -> src | approximate | Raw window value; Argus's representation is unverified. | yes |
+| `tcprtt` | tcp.flags, frame.time_epoch | synack + ackdat (s) | derived | 0 without a complete handshake. | yes |
+| `synack` | tcp.flags, frame.time_epoch | SYN -> SYN-ACK (s) | derived | 0 without a SYN-ACK. | yes |
+| `ackdat` | tcp.flags, frame.time_epoch | SYN-ACK -> ACK (s) | derived | 0 without the final ACK. | yes |
+| `smean` | derived | sbytes / spkts | derived | Inherits sbytes approximation. | yes |
+| `dmean` | derived | dbytes / dpkts | derived | Inherits dbytes approximation. | yes |
+| `trans_depth` | http.request.method | number of HTTP requests in the flow | approximate | Bro's pipelining depth is approximated by the request count. | yes |
+| `response_body_len` | http.content_length | sum of response Content-Length | approximate | Declared length, not the uncompressed body size. | yes |
+| `ct_srv_src` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `ct_state_ttl` | - | - | unavailable | The dataset's TTL/state ranges are not published. | no |
+| `ct_dst_ltm` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `ct_src_dport_ltm` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `ct_dst_sport_ltm` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `ct_dst_src_ltm` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `is_ftp_login` | ftp.request.command | 1 if USER and PASS were sent | approximate | Does not check that the login succeeded. | yes |
+| `ct_ftp_cmd` | ftp.request.command | number of FTP commands in the flow | derived | FTP control flows only. | yes |
+| `ct_flw_http_mthd` | http.request.method | number of GET/POST requests in the flow | approximate | Per-flow count; the dataset's exact definition is ambiguous. | yes |
+| `ct_src_ltm` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `ct_srv_dst` | flow window | count over the last 100 completed flows, this one included | derived | Window over SentinelNepal's flows. | yes |
+| `is_sm_ips_ports` | derived | src_ip == dst_ip and src_port == dst_port | derived | - | yes |
+<!-- END GENERATED -->
+
+TTL features (`sttl`, `dttl`, `ct_state_ttl`) are excluded from the live model: in
+UNSW-NB15 they mostly identify the testbed hosts, and in the Docker lab every packet has the
+same TTL.
+
+## Zeek mapping (reference, not used)
+
+Single source of truth: `ml/sentinel_ml/schema.py` (`LIVE_FEATURE_MAP`). Regenerate with
+`sentinel-ml feature-table`.
 
 <!-- BEGIN GENERATED: sentinel-ml feature-table -->
 | Dataset feature | Live source (Zeek) | Transformation | Availability | Limitation | In `live_compatible` |
@@ -85,8 +148,11 @@ Defined in `EXCLUDED_COLUMNS` in `schema.py`, each with its reason:
 
 ## Consequences
 
-1. The `full` model cannot score live traffic: about a third of its inputs are unavailable.
-2. Even `live_compatible` metrics describe Argus-computed dataset values. Zeek computes some
-   of them differently (see "approximate"), so live behaviour may differ from reported metrics.
-3. Phase 6 must compare Zeek-derived values with dataset values (ideally by running Zeek on
-   a slice of the published UNSW-NB15 PCAPs) before an admin may approve live inference.
+1. The `full` model cannot score live traffic: `ct_state_ttl` is unavailable. The
+   `full_no_ttl` model can, with 15 of its 36 features approximated (listed above).
+2. Its metrics describe Argus-computed dataset values; live values come from different
+   tools and a different network, so live behaviour can differ from the reported metrics.
+3. Live inference therefore needs an admin's explicit approval of the model, after the
+   compatibility check passes, and stays observation-only until then.
+4. A saved lab capture can be converted to the dataset's CSV layout with
+   `sentinel-ml pcap-features capture.pcapng --output flows.csv` to inspect the values.

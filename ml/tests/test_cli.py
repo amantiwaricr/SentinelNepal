@@ -16,12 +16,14 @@ def test_feature_table_lists_every_feature() -> None:
         assert f"| `{name}` |" in table
 
 
-def test_feature_mapping_doc_matches_code() -> None:
-    # docs/feature-mapping.md embeds the generated table; regenerate it with
-    # `sentinel-ml feature-table` whenever schema.LIVE_FEATURE_MAP changes.
+@pytest.mark.parametrize("source", ["zeek", "tshark"])
+def test_feature_mapping_doc_matches_code(source: str) -> None:
+    # docs/feature-mapping.md embeds the generated tables; regenerate them with
+    # `sentinel-ml feature-table [--source tshark]` whenever a mapping changes.
+    begin = BEGIN if source == "zeek" else BEGIN.replace("-->", "").rstrip() + " tshark -->"
     text = DOC.read_text(encoding="utf-8")
-    embedded = text.split(BEGIN, 1)[1].split(END, 1)[0].strip()
-    assert embedded == feature_table_markdown().strip()
+    embedded = text.split(begin, 1)[1].split(END, 1)[0].strip()
+    assert embedded == feature_table_markdown(source).strip()
 
 
 def test_cli_profile_train_evaluate_on_synthetic_data(

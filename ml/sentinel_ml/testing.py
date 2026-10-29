@@ -134,3 +134,70 @@ def full_record_rows() -> list[list[str]]:
             label="1",
         ),
     ]
+
+
+# --- SYNTHETIC packet captures (for live feature tests only) ---------------------------------
+
+TCP_FLAGS = {"F": 0x01, "S": 0x02, "R": 0x04, "P": 0x08, "A": 0x10}
+
+
+def _ipv4(src: str, dst: str, proto: int, payload: bytes, ttl: int) -> bytes:
+    import struct
+
+    header = struct.pack(
+        "!BBHHHBBH4s4s",
+        0x45,
+        0,
+        20 + len(payload),
+        1,
+        0,
+        ttl,
+        proto,
+        0,
+        bytes(int(o) for o in src.split(".")),
+        bytes(int(o) for o in dst.split(".")),
+    )
+    return header + payload
+
+
+def synthetic_tcp(
+    src: str,
+    sport: int,
+    dst: str,
+    dport: int,
+    flags: str,
+    payload: bytes = b"",
+    *,
+    seq: int = 1,
+    ack: int = 0,
+    window: int = 64240,
+    ttl: int = 64,
+) -> bytes:
+    """An Ethernet frame with an IPv4/TCP packet (checksums zero; TShark does not check)."""
+    import struct
+
+    bits = sum(TCP_FLAGS[c] for c in flags)
+    tcp = struct.pack("!HHIIBBHHH", sport, dport, seq, ack, 5 << 4, bits, window, 0, 0)
+    return b"\x02" * 6 + b"\x04" * 6 + b"\x08\x00" + _ipv4(src, dst, 6, tcp + payload, ttl)
+
+
+def synthetic_udp(
+    src: str, sport: int, dst: str, dport: int, payload: bytes, ttl: int = 64
+) -> bytes:
+    import struct
+
+    udp = struct.pack("!HHHH", sport, dport, 8 + len(payload), 0) + payload
+    return b"\x02" * 6 + b"\x04" * 6 + b"\x08\x00" + _ipv4(src, dst, 17, udp, ttl)
+
+
+def write_synthetic_pcap(path: Path, frames: list[tuple[float, bytes]]) -> Path:
+    """Write (timestamp, frame) pairs as a classic little-endian pcap file."""
+    import struct
+
+    out = bytearray(struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1))
+    for ts, frame in frames:
+        seconds = int(ts)
+        micros = round((ts - seconds) * 1e6)
+        out += struct.pack("<IIII", seconds, micros, len(frame), len(frame)) + frame
+    path.write_bytes(bytes(out))
+    return path

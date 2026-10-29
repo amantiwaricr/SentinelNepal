@@ -15,7 +15,23 @@ DEFAULT_ARTIFACTS = ML_ROOT / "artifacts"
 DEFAULT_REPORTS = ML_ROOT / "reports"
 
 
-def feature_table_markdown() -> str:
+def feature_table_markdown(source: str = "zeek") -> str:
+    if source == "tshark":
+        from sentinel_ml.live.mapping import TSHARK_FEATURE_MAP
+
+        lines = [
+            "| Dataset feature | TShark source | Transformation | Availability | Limitation | "
+            "In `full_no_ttl` |",
+            "|---|---|---|---|---|---|",
+        ]
+        used = set(PROFILES["full_no_ttl"].features)
+        for name, mapping in TSHARK_FEATURE_MAP.items():
+            lines.append(
+                f"| `{name}` | {mapping.source} | {mapping.transformation} | "
+                f"{mapping.availability.value} | {mapping.limitation} | "
+                f"{'yes' if name in used else 'no'} |"
+            )
+        return "\n".join(lines) + "\n"
     lines = [
         "| Dataset feature | Live source (Zeek) | Transformation | Availability | Limitation | "
         "In `live_compatible` |",
@@ -61,7 +77,15 @@ def main(argv: list[str] | None = None) -> int:
     p_threshold.add_argument("--data-dir", type=Path, default=DEFAULT_DATA)
     p_threshold.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS)
 
-    sub.add_parser("feature-table", help="Print the dataset-to-Zeek feature mapping table")
+    p_table = sub.add_parser("feature-table", help="Print the dataset-to-live feature mapping")
+    p_table.add_argument("--source", choices=["zeek", "tshark"], default="zeek")
+
+    p_pcap = sub.add_parser(
+        "pcap-features",
+        help="Convert a saved lab capture into a CSV of flows with the dataset's feature names",
+    )
+    p_pcap.add_argument("capture", type=Path)
+    p_pcap.add_argument("--output", type=Path, required=True)
 
     args = parser.parse_args(argv)
     # Progress goes to stderr so long runs never look stuck; results stay on stdout.
@@ -100,8 +124,16 @@ def main(argv: list[str] | None = None) -> int:
             args.artifact_dir, args.data_dir, args.reports_dir, target_fpr=args.target_fpr
         )
         print(f"Report: {report_dir / 'threshold.md'}")
+    elif args.command == "pcap-features":
+        from sentinel_ml.live.export import write_flows_csv
+
+        count, stats = write_flows_csv(args.capture, args.output)
+        print(
+            f"Wrote {count} flows to {args.output} ({stats.packets} packets, "
+            f"{stats.malformed} malformed lines skipped)"
+        )
     else:
-        sys.stdout.write(feature_table_markdown())
+        sys.stdout.write(feature_table_markdown(args.source))
     return 0
 
 
