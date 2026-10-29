@@ -13,6 +13,7 @@ import { FirewallRequestPage } from './pages/FirewallRequestPage'
 import { IncidentDetailPage } from './pages/IncidentDetailPage'
 import { IncidentsPage } from './pages/IncidentsPage'
 import { IpInvestigationPage } from './pages/IpInvestigationPage'
+import { LiveMonitoringPage } from './pages/LiveMonitoringPage'
 import { LoginPage } from './pages/LoginPage'
 import { ModelEvaluationPage } from './pages/ModelEvaluationPage'
 import { NewFirewallRequestPage } from './pages/NewFirewallRequestPage'
@@ -35,6 +36,7 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="alerts/:alertId" element={<AlertDetailsPage />} />
+          <Route path="live" element={<LiveMonitoringPage />} />
           <Route path="ips" element={<IpInvestigationPage />} />
           <Route path="incidents" element={<IncidentsPage />} />
           <Route path="incidents/:incidentId" element={<IncidentDetailPage />} />

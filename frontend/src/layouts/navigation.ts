@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   Network,
+  Radio,
   ScrollText,
   ShieldAlert,
   ShieldBan,
@@ -25,6 +26,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/alerts', label: 'Alerts', icon: ShieldAlert },
+  { to: '/live', label: 'Live Monitoring', icon: Radio },
   { to: '/ips', label: 'IP Investigation', icon: Network },
   { to: '/incidents', label: 'Incidents', icon: FolderSearch },
   { to: '/recommendations', label: 'Recommendations', icon: Lightbulb },

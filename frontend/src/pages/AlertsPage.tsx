@@ -12,6 +12,7 @@ import { LoadingState } from '../components/LoadingState'
 import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
 import { Panel } from '../components/Panel'
+import { ALERT_EVENTS, useRefreshOn } from '../events/liveEventsContext'
 import { useApiResource } from '../hooks/useApiResource'
 import { isoToLocalInput, localInputToIso } from '../lib/format'
 import {
@@ -80,6 +81,9 @@ export function AlertsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- queryKey captures every field of query
   const load = useCallback((signal: AbortSignal) => listAlerts(query, signal), [queryKey])
   const { state, reload } = useApiResource(load)
+  // New live or replayed alerts: refetch quietly (the notification itself carries no data).
+  const refetch = useCallback(() => reload({ quiet: true }), [reload])
+  useRefreshOn(ALERT_EVENTS, refetch)
 
   const [draft, setDraft] = useState<Draft>(() => draftFrom(query))
   const [draftKey, setDraftKey] = useState(queryKey)

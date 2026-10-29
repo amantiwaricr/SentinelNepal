@@ -15,6 +15,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useAction } from '../hooks/useAction'
 import { useApiResource } from '../hooks/useApiResource'
 import { formatCount, formatDateTime, formatPercent, formatScore } from '../lib/format'
+import { setLiveApproval } from '../services/api/live'
 import { activateModel, listModels } from '../services/api/models'
 import type { ModelVersionOut } from '../types/api'
 
@@ -96,7 +97,9 @@ export function ModelEvaluationPage() {
 function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated: () => void }) {
   const user = useCurrentUser()
   const [confirming, setConfirming] = useState(false)
+  const [approving, setApproving] = useState(false)
   const action = useAction(() => activateModel(model.id))
+  const approval = useAction(() => setLiveApproval(model.id, !model.live_inference_approved))
   const metrics = model.metrics as Metrics
   const threshold = (model.threshold_details ?? null) as ThresholdDetails | null
   const precision =
@@ -127,6 +130,11 @@ function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated
           {user.role === 'admin' && !model.is_active && (
             <Button size="sm" onClick={() => setConfirming(true)}>
               Activate…
+            </Button>
+          )}
+          {user.role === 'admin' && (
+            <Button size="sm" onClick={() => setApproving(true)}>
+              {model.live_inference_approved ? 'Withdraw live approval…' : 'Approve for live use…'}
             </Button>
           )}
         </>
@@ -242,6 +250,41 @@ function ModelCard({ model, onActivated }: { model: ModelVersionOut; onActivated
         </div>
       </details>
 
+      {approving && (
+        <ConfirmDialog
+          title={
+            model.live_inference_approved
+              ? `Withdraw live approval for ${model.name} ${model.version}?`
+              : `Approve ${model.name} ${model.version} for live traffic?`
+          }
+          confirmLabel={model.live_inference_approved ? 'Withdraw approval' : 'Approve'}
+          pending={approval.pending}
+          error={approval.error}
+          onConfirm={async () => {
+            if (await approval.run()) {
+              setApproving(false)
+              onActivated()
+            }
+          }}
+          onCancel={() => setApproving(false)}
+        >
+          {model.live_inference_approved ? (
+            <p>Collectors stop being scored by this model straight away.</p>
+          ) : (
+            <>
+              <p>
+                Lets this model score flows from collectors an administrator has put in inference
+                mode. The server refuses models that need features live traffic cannot supply.
+              </p>
+              <p>
+                Its results above were measured on the dataset, not on lab traffic. Live scores are
+                uncalibrated suspicions; alerts never block anything automatically. The decision is
+                recorded in the audit log.
+              </p>
+            </>
+          )}
+        </ConfirmDialog>
+      )}
       {confirming && (
         <ConfirmDialog
           title={`Activate ${model.name} ${model.version}?`}

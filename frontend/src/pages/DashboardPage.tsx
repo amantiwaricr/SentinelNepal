@@ -14,6 +14,7 @@ import { Panel } from '../components/Panel'
 import { SegmentedControl } from '../components/SegmentedControl'
 import { SeverityBadge } from '../components/SeverityBadge'
 import { StatCard } from '../components/StatCard'
+import { ALERT_EVENTS, useRefreshOn } from '../events/liveEventsContext'
 import { useApiResource } from '../hooks/useApiResource'
 import { formatCount, formatDateTime, formatScore, humanize } from '../lib/format'
 import { INCIDENT_STATUS_LABELS, INCIDENT_STATUSES, SEVERITIES } from '../lib/labels'
@@ -56,6 +57,9 @@ export function DashboardPage() {
     [source],
   )
   const { state, reload } = useApiResource(loadDashboard)
+  // New live or replayed alerts: refetch quietly (the notification itself carries no data).
+  const refetch = useCallback(() => reload({ quiet: true }), [reload])
+  useRefreshOn(ALERT_EVENTS, refetch)
 
   return (
     <>

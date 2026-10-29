@@ -208,8 +208,9 @@ describe('Model evaluation', () => {
     expect(within(precision).getByText('Exploits').closest('tr')).not.toHaveTextContent(
       'Unreliable',
     )
-    // Analysts cannot activate models.
+    // Analysts cannot activate or approve models.
     expect(screen.queryByRole('button', { name: 'Activate…' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve for live use…' })).not.toBeInTheDocument()
   })
 
   it('lets an admin activate a model after confirming', async () => {
@@ -232,6 +233,28 @@ describe('Model evaluation', () => {
     )
     expect(await screen.findByText('Active')).toBeInTheDocument()
     expect(api.callsTo('POST', '/models/1/activate')).toHaveLength(1)
+  })
+
+  it('shows the server refusing live approval for an incompatible model', async () => {
+    const user = userEvent.setup()
+    const api = mockApi(
+      {
+        'GET /models': [MODEL],
+        'POST /models/1/live-approval': apiError(
+          409,
+          'incompatible_model',
+          'Live traffic cannot supply: ct_state_ttl',
+        ),
+      },
+      { user: ADMIN },
+    )
+    renderAppAt('/model')
+    await user.click(await screen.findByRole('button', { name: 'Approve for live use…' }))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('uncalibrated suspicions')
+    await user.click(within(dialog).getByRole('button', { name: 'Approve' }))
+    expect(await within(dialog).findByText(/ct_state_ttl/)).toBeInTheDocument()
+    expect(api.callsTo('POST', '/models/1/live-approval')[0]?.body).toEqual({ approved: true })
   })
 })
 
