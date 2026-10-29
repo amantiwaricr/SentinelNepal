@@ -20,7 +20,17 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Resource-Policy": "same-origin",
 }
+# API responses are JSON: they never need to run scripts, load resources or be framed, and
+# they hold investigation data that should not be cached on shared machines.
+API_ONLY_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Cache-Control": "no-store",
+}
+# The interactive API docs (development only) load Swagger UI scripts, so a strict CSP
+# would break them.
+DOCS_PREFIXES = ("/api/docs", "/api/redoc")
 
 logger = logging.getLogger("app.request")
 
@@ -60,6 +70,10 @@ class RequestContextMiddleware:
                 headers[REQUEST_ID_HEADER] = request_id
                 for key, value in SECURITY_HEADERS.items():
                     headers.setdefault(key, value)
+                path = str(scope.get("path", ""))
+                if path.startswith("/api/") and not path.startswith(DOCS_PREFIXES):
+                    for key, value in API_ONLY_HEADERS.items():
+                        headers.setdefault(key, value)
             await send(message)
 
         try:
@@ -118,3 +132,60 @@ class CSRFHeaderMiddleware:
                 await response(scope, receive, send)
                 return
         await self.app(scope, receive, send)
+
+
+class BodySizeLimitMiddleware:
+    """Reject request bodies over a size limit before the application reads them.
+
+    Without this, FastAPI reads a JSON body of any size into memory, and the multipart
+    parser writes an oversized upload to a temporary file before the endpoint can refuse it.
+    ``Content-Length`` is checked up front; bodies sent without it (chunked) are counted as
+    they stream in and cut off at the limit.
+    """
+
+    def __init__(
+        self, app: ASGIApp, default_limit: int, path_limits: dict[str, int] | None = None
+    ) -> None:
+        self.app = app
+        self.default_limit = default_limit
+        self.path_limits = path_limits or {}
+
+    def _limit(self, path: str) -> int:
+        return self.path_limits.get(path.rstrip("/"), self.default_limit)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = self._limit(str(scope.get("path", "")))
+        too_large = error_response(
+            413, "payload_too_large", f"Request body exceeds the {limit} byte limit"
+        )
+        declared = dict(scope.get("headers", [])).get(b"content-length")
+        if declared is not None and (not declared.isdigit() or int(declared) > limit):
+            await too_large(scope, receive, send)
+            return
+
+        received = 0
+        rejected = False
+
+        async def limited_receive() -> Message:
+            nonlocal received, rejected
+            if rejected:
+                return {"type": "http.disconnect"}
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    # Answer 413 now and tell the application the client went away. (Raising
+                    # here would be turned into a generic 400 by FastAPI's body parsing.)
+                    rejected = True
+                    await too_large(scope, receive, send)
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def guarded_send(message: Message) -> None:
+            if not rejected:  # the 413 has already been sent
+                await send(message)
+
+        await self.app(scope, limited_receive, guarded_send)

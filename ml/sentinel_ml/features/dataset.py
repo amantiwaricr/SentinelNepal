@@ -19,6 +19,7 @@ from sentinel_ml.schema import (
     FEATURES_DESCRIPTION_FILE,
     FULL_RECORD_COLUMNS,
     LABEL_COLUMN,
+    PARTITIONED_COLUMNS,
     SYNTHETIC_MARKER_FILE,
     normalize_column_name,
 )
@@ -131,6 +132,9 @@ def labels_of(result: CleanResult) -> pd.Series:
     return result.labels
 
 
+KNOWN_COLUMNS = frozenset(PARTITIONED_COLUMNS) | frozenset(FULL_RECORD_COLUMNS)
+
+
 def iter_raw_chunks(
     path: Path, kind: SchemaKind, data_dir: Path | None, chunk_rows: int = DEFAULT_CHUNK_ROWS
 ) -> Iterator[pd.DataFrame]:
@@ -144,6 +148,10 @@ def iter_raw_chunks(
     }
     if kind == "unsw_full":
         options.update(header=None, names=full_record_columns(data_dir))
+    else:
+        # Parse only columns the schema knows; unknown extra columns (for example a crafted
+        # file with thousands of them) are never loaded into memory.
+        options["usecols"] = lambda name: normalize_column_name(str(name)) in KNOWN_COLUMNS
     try:
         with pd.read_csv(path, **options) as reader:  # type: ignore[call-overload]
             yield from reader

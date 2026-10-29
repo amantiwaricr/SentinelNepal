@@ -9,11 +9,16 @@ from sentinel_ml.features.dataset import (
     data_origin,
     detect_schema,
     find_file,
+    iter_raw_chunks,
     load_files,
     sha256_file,
 )
 from sentinel_ml.schema import FEATURES_DESCRIPTION_FILE, FULL_RECORD_COLUMNS, TRAIN_FILE
-from sentinel_ml.testing import full_record_rows, write_synthetic_partitioned
+from sentinel_ml.testing import (
+    full_record_rows,
+    make_partitioned_frame,
+    write_synthetic_partitioned,
+)
 
 # Raw names as they appear in the published description file (mixed case, a stray space).
 RAW_DESCRIPTION_NAMES = [
@@ -180,3 +185,14 @@ def test_unlabelled_file_with_header_is_recognised(tmp_path: Path) -> None:
         path, index=False
     )
     assert detect_schema(path) == "unsw_partitioned"
+
+
+def test_unknown_columns_in_uploaded_files_are_never_loaded(tmp_path: Path) -> None:
+    frame = make_partitioned_frame(50, seed=3)
+    for i in range(300):  # a crafted file with many extra columns
+        frame[f"junk_{i}"] = "x" * 20
+    path = tmp_path / "wide.csv"
+    frame.to_csv(path, index=False)
+    chunk = next(iter_raw_chunks(path, detect_schema(path), None))
+    assert not any(str(c).startswith("junk_") for c in chunk.columns)
+    assert {"dur", "proto", "attack_cat"} <= set(chunk.columns)

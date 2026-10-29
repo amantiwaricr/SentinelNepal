@@ -8,16 +8,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router
+from app.api.v1.datasets import MULTIPART_OVERHEAD, UPLOAD_PATH
 from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
-from app.core.middleware import CSRFHeaderMiddleware, RequestContextMiddleware
+from app.core.middleware import (
+    BodySizeLimitMiddleware,
+    CSRFHeaderMiddleware,
+    RequestContextMiddleware,
+)
 from app.core.rate_limit import SlidingWindowLimiter
 from app.db.session import build_sessionmaker, engine_from_settings
 from app.services.ml_service import PredictorCache
 from app.workers.analysis import AnalysisWorker
 
 logger = logging.getLogger(__name__)
+
+# The largest legitimate JSON body is a 10,000-character note or description (up to 40 KB
+# of UTF-8); 64 KiB leaves room for that and refuses anything far larger.
+MAX_JSON_BODY_BYTES = 64 * 1024
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -56,6 +65,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         expose_headers=["X-Request-ID"],
     )
     app.add_middleware(CSRFHeaderMiddleware)
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        default_limit=MAX_JSON_BODY_BYTES,
+        path_limits={UPLOAD_PATH: settings.max_upload_mb * 1024 * 1024 + MULTIPART_OVERHEAD},
+    )
     # Added last so it is the outermost middleware and sees every response.
     app.add_middleware(RequestContextMiddleware)
 

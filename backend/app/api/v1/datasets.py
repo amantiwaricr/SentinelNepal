@@ -12,6 +12,7 @@ from app.services import analyses
 
 router = APIRouter(prefix="/datasets/analyses", tags=["datasets"])
 MULTIPART_OVERHEAD = 1024 * 1024
+UPLOAD_PATH = "/api/v1/datasets/analyses"
 
 
 @router.post("", response_model=AnalysisRunOut, status_code=202)

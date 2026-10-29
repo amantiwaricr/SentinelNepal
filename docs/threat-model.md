@@ -132,16 +132,19 @@
 
 ## 6. Security test checklist (to implement in Phases 3, 5, 7)
 
-- [ ] Authorisation matrix for every endpoint and role
-- [ ] Login lockout and rate limit
-- [ ] Session expiry and logout revocation
-- [ ] CSRF header requirement on POST/PATCH/DELETE
-- [ ] CORS rejects unknown origins
-- [ ] SQLi payloads in filters and search
-- [ ] XSS payloads stored in notes/titles rendered inert
-- [ ] Upload: wrong type, oversize, malformed rows, path-traversal filename
-- [ ] Audit: update/delete blocked at DB level
-- [ ] Model: hash mismatch refuses load
-- [ ] Ingest: bad token, oversize batch, invalid records
-- [ ] Firewall: invalid/protected targets, self-approval, unapproved execution, duplicates, timeout, revoke idempotency
-- [ ] WebSocket: missing cookie, foreign Origin
+Status after Phase 5; findings and evidence are in [`security-review.md`](security-review.md).
+
+
+- [x] Authorisation matrix for every endpoint and role (`test_authorization_matrix.py`)
+- [x] Login lockout and rate limit (`test_auth.py`)
+- [x] Session expiry and logout revocation (`test_auth.py`)
+- [x] CSRF header requirement on POST/PATCH/DELETE (`test_errors_and_middleware.py`)
+- [x] CORS rejects unknown origins (`test_errors_and_middleware.py`, `test_config.py`)
+- [x] SQLi payloads in filters and search (`test_security.py`)
+- [x] XSS payloads stored in notes/titles rendered inert (`test_security.py`; frontend tests)
+- [x] Upload: wrong type, oversize (declared and streamed), malformed rows, path-traversal filename (`test_analyses.py`, `test_security.py`)
+- [x] Audit: update/delete blocked at DB level (`test_audit_log.py`)
+- [x] Model: hash mismatch refuses load (`test_models.py`, `test_analyses.py`)
+- [ ] Ingest: bad token, oversize batch, invalid records (Phase 6)
+- [ ] Firewall: invalid/protected targets, self-approval, duplicates and revoke idempotency are tested at the API (`test_firewall.py`); unapproved execution and timeout need the helper (Phase 7)
+- [ ] WebSocket: missing cookie, foreign Origin (Phase 6)

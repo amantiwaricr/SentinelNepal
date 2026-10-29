@@ -112,6 +112,51 @@ def test_security_headers_present(client: TestClient) -> None:
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Cross-Origin-Resource-Policy"] == "same-origin"
+    assert (
+        response.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
+    )
+    assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_docs_are_not_given_the_strict_api_csp(client: TestClient) -> None:
+    response = client.get("/api/docs")
+    assert response.status_code == 200
+    assert "Content-Security-Policy" not in response.headers
+    assert response.headers["X-Frame-Options"] == "DENY"
+
+
+def test_oversized_json_body_is_refused_before_parsing(client: TestClient) -> None:
+    body = b'{"username": "a", "password": "' + b"x" * (70 * 1024) + b'"}'
+    response = client.post(
+        "/api/v1/auth/login",
+        content=body,
+        headers={"Content-Type": "application/json", "X-Requested-With": "SentinelNepal"},
+    )
+    assert response.status_code == 413
+    _assert_envelope(response.json(), "payload_too_large")
+
+
+def test_oversized_body_without_content_length_is_cut_off(client: TestClient) -> None:
+    def chunks():  # type: ignore[no-untyped-def]
+        for _ in range(80):
+            yield b"x" * 1024
+
+    response = client.post(
+        "/api/v1/auth/login",
+        content=chunks(),
+        headers={"Content-Type": "application/json", "X-Requested-With": "SentinelNepal"},
+    )
+    assert response.status_code == 413
+
+
+def test_invalid_content_length_is_refused(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/login",
+        content=b"{}",
+        headers={"Content-Length": "abc", "X-Requested-With": "SentinelNepal"},
+    )
+    assert response.status_code in (400, 413)
 
 
 def test_cors_allows_configured_origin(client: TestClient) -> None:

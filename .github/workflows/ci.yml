@@ -94,6 +94,27 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  audit:
+    # Known-vulnerability check of pinned dependencies (PyPI advisories via pip-audit, npm
+    # advisories via npm audit). Fails on any Python finding or on high/critical npm ones.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - run: pip install pip-audit==2.10.1
+      - name: pip-audit (backend and ml)
+        run: |
+          (cd backend && pip-audit -r requirements.txt -r requirements-dev.txt)
+          (cd ml && pip-audit -r requirements.txt -r requirements-dev.txt)
+      - name: npm audit (frontend)
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
   compose:
     runs-on: ubuntu-24.04
     steps:
