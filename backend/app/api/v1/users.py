@@ -3,10 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 
-from app.api.deps import AdminUser, Audit, DbSession
+from app.api.deps import AdminUser, AnalystUser, Audit, DbSession
 from app.models.user import User
 from app.schemas.common import Page, PageParams, page_params
-from app.schemas.users import UserCreate, UserOut, UserUpdate
+from app.schemas.users import UserCreate, UserDirectoryEntry, UserOut, UserUpdate
 from app.services import users
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -26,6 +26,16 @@ def list_users(
         page_size=paging.page_size,
         total=total,
     )
+
+
+@router.get("/directory", response_model=list[UserDirectoryEntry])
+def user_directory(_: AnalystUser, db: DbSession) -> list[UserDirectoryEntry]:
+    """Usernames and roles for assignment pickers and for showing who did what.
+
+    Login times and account metadata stay admin-only (``GET /users``).
+    """
+    rows = db.scalars(select(User).order_by(User.username)).all()
+    return [UserDirectoryEntry.model_validate(u) for u in rows]
 
 
 @router.post("", response_model=UserOut, status_code=201)

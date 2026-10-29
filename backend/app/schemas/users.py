@@ -23,6 +23,15 @@ class UserOut(OrmModel):
     created_at: datetime
 
 
+class UserDirectoryEntry(OrmModel):
+    """What any signed-in user may see about colleagues: enough to assign work and show names."""
+
+    id: int
+    username: str
+    role: Role
+    is_active: bool
+
+
 class UserCreate(StrictModel):
     username: str = Field(pattern=USERNAME_PATTERN)
     password: str = Field(min_length=1, max_length=256)

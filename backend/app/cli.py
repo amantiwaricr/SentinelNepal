@@ -71,6 +71,26 @@ def cmd_activate_model(args: argparse.Namespace) -> int:
     return 0
 
 
+def openapi_document() -> str:
+    """The API schema as committed in ``frontend/openapi.json`` (frontend types come from it)."""
+    import json
+
+    from app.core.config import Settings
+    from app.main import create_app
+
+    # Fixed development settings: the schema must not depend on the caller's environment.
+    settings = Settings(environment="development", database_url="postgresql://unused/unused")
+    return json.dumps(create_app(settings).openapi(), indent=2) + "\n"
+
+
+def cmd_export_openapi(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    Path(args.output).write_text(openapi_document(), encoding="utf-8")
+    print(f"Wrote {args.output}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -104,6 +124,12 @@ def main(argv: list[str] | None = None) -> int:
     p_act = sub.add_parser("activate-model", help="Make a registered model active")
     p_act.add_argument("model_id", type=int)
     p_act.set_defaults(handler=cmd_activate_model)
+
+    p_api = sub.add_parser(
+        "export-openapi", help="Write the API schema used to generate the frontend types"
+    )
+    p_api.add_argument("--output", default="../frontend/openapi.json")
+    p_api.set_defaults(handler=cmd_export_openapi)
 
     args = parser.parse_args(argv)
     try:

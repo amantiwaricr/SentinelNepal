@@ -18,6 +18,7 @@ EXPECTED: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/logout"): ANALYST,
     ("GET", "/api/v1/auth/me"): ANALYST,
     ("GET", "/api/v1/users"): ADMIN,
+    ("GET", "/api/v1/users/directory"): ANALYST,
     ("POST", "/api/v1/users"): ADMIN,
     ("PATCH", "/api/v1/users/{user_id}"): ADMIN,
     ("GET", "/api/v1/models"): ANALYST,

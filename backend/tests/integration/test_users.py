@@ -77,3 +77,13 @@ def test_password_reset_revokes_sessions_and_is_audited_without_the_password(
     entry = db.scalars(select(AuditLog).where(AuditLog.action == "user.updated")).one()
     assert entry.details == {"password_reset": True}
     assert "a-brand-new-pass-9" not in str(entry.details)
+
+
+def test_directory_lists_names_and_roles_only(analyst: TestClient) -> None:
+    response = analyst.get("/api/v1/users/directory")
+    assert response.status_code == 200
+    entries = response.json()
+    assert [e["username"] for e in entries] == sorted(e["username"] for e in entries)
+    # Login history and timestamps stay on the admin-only listing.
+    assert all(set(e) == {"id", "username", "role", "is_active"} for e in entries)
+    assert {e["username"] for e in entries} >= {"analyst1"}
