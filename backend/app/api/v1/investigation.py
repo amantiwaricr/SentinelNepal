@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import AnalystUser, DbSession
+from app.api.deps import AnalystUser, AppSettings, DbSession
 from app.schemas.ops import AlertOut, DashboardOut, IpSummaryOut, SubnetSummaryOut
 from app.services import dashboard, investigation
 
@@ -25,6 +25,14 @@ def subnet_summary(
 
 @router.get("/dashboard/summary", response_model=DashboardOut)
 def dashboard_summary(
-    _: AnalystUser, db: DbSession, source: Literal["all", "dataset", "live"] = "all"
+    _: AnalystUser,
+    db: DbSession,
+    settings: AppSettings,
+    source: Literal["all", "dataset", "live"] = "all",
 ) -> DashboardOut:
-    return DashboardOut.model_validate(dashboard.summary(db, source))
+    profiles = {
+        "dataset": (settings.dataset_model_profile,),
+        "live": (settings.live_model_profile,),
+        "all": (settings.dataset_model_profile, settings.live_model_profile),
+    }[source]
+    return DashboardOut.model_validate(dashboard.summary(db, source, profiles))

@@ -30,7 +30,9 @@ def _grouped(
     return {str(k): int(n) for k, n in db.execute(stmt).all()}
 
 
-def summary(db: Session, source: str) -> dict[str, Any]:
+def summary(db: Session, source: str, model_profiles: tuple[str, ...]) -> dict[str, Any]:
+    """``model_profiles``: the feature profiles whose active model scores this source's
+    alerts (dataset analysis and live/replay use different models)."""
     sources = SOURCES[source]
     condition = Alert.source.in_(sources) if sources else true()
     since = utcnow() - timedelta(days=ACTIVITY_DAYS)
@@ -41,7 +43,11 @@ def summary(db: Session, source: str) -> dict[str, Any]:
         .group_by(day)
         .order_by(day)
     ).all()
-    active_models = db.scalars(select(ModelVersion).where(ModelVersion.is_active)).all()
+    active_models = db.scalars(
+        select(ModelVersion)
+        .where(ModelVersion.is_active, ModelVersion.feature_profile.in_(model_profiles))
+        .order_by(ModelVersion.feature_profile)
+    ).all()
     return {
         "source": source,
         "generated_at": utcnow(),

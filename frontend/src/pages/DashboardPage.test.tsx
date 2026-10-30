@@ -43,7 +43,7 @@ describe('DashboardPage', () => {
     expect(statValue('Total alerts')).toBe('1,234')
     expect(statValue('New (unreviewed) alerts')).toBe('56')
     expect(statValue('Open incidents')).toBe('3') // new + under investigation
-    expect(statValue('Active model')).toBe('random_forest')
+    expect(statValue('Active model')).toContain('random_forest')
     expect(screen.getByText('full · threshold 0.815')).toBeInTheDocument()
     const ips = screen.getByRole('table', { name: 'Most frequent source IP addresses' })
     expect(within(ips).getByRole('link', { name: '192.0.2.10' })).toHaveAttribute(
@@ -60,7 +60,7 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('No alerts yet')).toBeInTheDocument()
     expect(screen.getByText('No incidents yet')).toBeInTheDocument()
     expect(screen.getByText('No alerts to categorise')).toBeInTheDocument()
-    expect(screen.getByText('Register a model to analyse uploads')).toBeInTheDocument()
+    expect(screen.getByText('Register and activate a model for this view')).toBeInTheDocument()
   })
 
   it('switches between all, dataset and live data and labels them', async () => {
@@ -79,7 +79,7 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('radio', { name: 'Live & replay' }))
     expect(
       await screen.findByText(
-        'No live or replayed alerts exist. Live monitoring is added in Phase 6.',
+        'No live or replayed alerts exist. Live Monitoring shows collector status and the score of each recent flow.',
       ),
     ).toBeInTheDocument()
     expect(api.callsTo('GET', '/dashboard/summary').map((c) => c.query.get('source'))).toEqual([

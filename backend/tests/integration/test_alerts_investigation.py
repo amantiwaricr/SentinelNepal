@@ -104,8 +104,12 @@ def test_dashboard_summary_counts_stored_data(
     assert data["alerts_by_source"] == {"dataset": 1, "live": 1}
     assert data["top_source_ips"] == {"10.10.0.23": 2}
     assert data["active_models"][0]["id"] == registered_model.id
-    assert analyst.get("/api/v1/dashboard/summary?source=dataset").json()["alerts_total"] == 1
-    assert analyst.get("/api/v1/dashboard/summary?source=live").json()["alerts_total"] == 1
+    dataset = analyst.get("/api/v1/dashboard/summary?source=dataset").json()
+    live = analyst.get("/api/v1/dashboard/summary?source=live").json()
+    assert dataset["alerts_total"] == 1 and live["alerts_total"] == 1
+    # Each view names the model that scores its alerts; no live-profile model is active here.
+    assert [m["id"] for m in dataset["active_models"]] == [registered_model.id]
+    assert live["active_models"] == []
 
 
 def test_component_health(

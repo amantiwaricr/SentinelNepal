@@ -95,7 +95,8 @@ function DashboardContent({ data }: { data: DashboardOut }) {
     (data.incidents_by_status.new ?? 0) + (data.incidents_by_status.under_investigation ?? 0)
   const alertsLink = data.source === 'dataset' ? '/alerts?source=dataset' : '/alerts'
   const topIps = Object.entries(data.top_source_ips).map(([ip, count]) => ({ ip, count }))
-  const model = data.active_models[0]
+  // The backend lists the active model(s) that score this view's alerts.
+  const models = data.active_models
 
   return (
     <div className="space-y-6">
@@ -121,21 +122,33 @@ function DashboardContent({ data }: { data: DashboardOut }) {
           hint="New or under investigation (all sources)"
         />
         <StatCard
-          label="Active model"
-          value={<span className="text-base">{model ? `${model.name}` : 'None'}</span>}
-          icon={BrainCircuit}
-          hint={
-            model
-              ? `${model.feature_profile} · threshold ${model.alert_threshold == null ? 'default decision' : formatScore(model.alert_threshold)}`
-              : 'Register a model to analyse uploads'
+          label={models.length > 1 ? 'Active models' : 'Active model'}
+          value={
+            <span className="block space-y-1 text-base">
+              {models.length === 0
+                ? 'None'
+                : models.map((m) => (
+                    <span key={m.id} className="block">
+                      {m.name}
+                      <span className="block text-xs font-normal text-slate-500">
+                        {m.feature_profile} · threshold{' '}
+                        {m.alert_threshold == null
+                          ? 'default decision'
+                          : formatScore(m.alert_threshold)}
+                      </span>
+                    </span>
+                  ))}
+            </span>
           }
+          icon={BrainCircuit}
+          hint={models.length === 0 ? 'Register and activate a model for this view' : undefined}
         />
       </div>
 
       {data.alerts_total === 0 && (
         <Notice title="No alerts yet">
           {data.source === 'live'
-            ? 'No live or replayed alerts exist. Live monitoring is added in Phase 6.'
+            ? 'No live or replayed alerts exist. Live Monitoring shows collector status and the score of each recent flow.'
             : 'Upload a UNSW-NB15 CSV on the Dataset Analysis page to produce dataset alerts.'}
         </Notice>
       )}
