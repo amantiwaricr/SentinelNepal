@@ -101,13 +101,22 @@ class BatchResult:
     alerts: list[Alert] = field(default_factory=list)
     scored: bool = False
     reason: str = ""
+    # Record index -> (attack score, top attack category), for every scored flow, so the
+    # Live page can show how close flows came to the threshold. Kept in memory only.
+    scores: dict[int, tuple[float, str]] = field(default_factory=dict)
 
 
 def _timestamp(value: float | None) -> datetime | None:
     return None if value is None else datetime.fromtimestamp(value, tz=UTC)
 
 
-def _summary(record: FlowIn, collector_id: int, source: str, scored: bool) -> dict[str, Any]:
+def _summary(
+    record: FlowIn,
+    collector_id: int,
+    source: str,
+    scored: bool,
+    score: tuple[float, str] | None,
+) -> dict[str, Any]:
     f = record.features
     return {
         "collector_id": collector_id,
@@ -126,6 +135,8 @@ def _summary(record: FlowIn, collector_id: int, source: str, scored: bool) -> di
         "sbytes": f.get("sbytes"),
         "dbytes": f.get("dbytes"),
         "scored": scored,
+        "attack_score": None if score is None else score[0],
+        "top_attack_category": None if score is None else score[1],
     }
 
 
@@ -173,6 +184,10 @@ def process_batch(
         result.rejected = len(predictions.rejected)
         candidates: dict[str, Alert] = {}
         for prediction in predictions.predictions:
+            result.scores[prediction.index] = (
+                prediction.attack_score,
+                prediction.top_attack_category,
+            )
             if not should_alert(prediction, model.alert_threshold):
                 continue
             record = batch.records[prediction.index]
@@ -213,7 +228,10 @@ def publish_batch_events(
     hub: EventHub, recent: RecentFlows, batch: IngestBatch, result: BatchResult
 ) -> None:
     recent.add(
-        [_summary(r, batch.collector_id, batch.source, result.scored) for r in batch.records]
+        [
+            _summary(r, batch.collector_id, batch.source, result.scored, result.scores.get(i))
+            for i, r in enumerate(batch.records)
+        ]
     )
     hub.publish(
         {

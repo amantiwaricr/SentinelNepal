@@ -441,6 +441,8 @@ export interface RecentFlowOut {
   sbytes: number | null
   dbytes: number | null
   scored: boolean
+  attack_score?: number | null
+  top_attack_category?: string | null
 }
 
 export interface RecommendationOut {

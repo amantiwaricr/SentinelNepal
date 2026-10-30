@@ -92,6 +92,24 @@ describe('LiveMonitoringPage', () => {
     expect(row).toHaveTextContent('Live')
     expect(row).toHaveTextContent('tcp / http')
     expect(row).toHaveTextContent('Not scored')
+  })
+
+  it('shows the uncalibrated score of scored flows, alerted or not', async () => {
+    mockApi(
+      liveRoutes({
+        'GET /live/flows': [
+          { ...FLOW, scored: true, attack_score: 0.312, top_attack_category: 'Reconnaissance' },
+          { ...FLOW, src_port: 40001, scored: true, attack_score: null },
+        ],
+      }),
+    )
+    renderAppAt('/live')
+    const flows = await screen.findByRole('table', { name: 'Recent flows' })
+    const scored = within(flows).getByText('192.0.2.3:58596').closest('tr')
+    expect(scored).toHaveTextContent('0.312')
+    expect(scored).toHaveTextContent('leans Reconnaissance')
+    const rejected = within(flows).getByText('192.0.2.3:40001').closest('tr')
+    expect(rejected).toHaveTextContent('Rejected by model')
     // Analysts see the state but cannot change collector modes.
     expect(screen.queryByRole('button', { name: /Switch to/ })).not.toBeInTheDocument()
   })

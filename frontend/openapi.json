@@ -5238,6 +5238,28 @@
           "scored": {
             "type": "boolean",
             "title": "Scored"
+          },
+          "attack_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attack Score"
+          },
+          "top_attack_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Attack Category"
           }
         },
         "additionalProperties": false,

@@ -140,3 +140,7 @@ class RecentFlowOut(StrictModel):
     sbytes: float | None
     dbytes: float | None
     scored: bool
+    # Uncalibrated 1 - score(Normal) and the highest-scoring attack class; null when the
+    # flow was not scored or the model rejected it.
+    attack_score: float | None = None
+    top_attack_category: str | None = None

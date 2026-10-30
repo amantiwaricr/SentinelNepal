@@ -119,7 +119,7 @@ export function LiveMonitoringPage() {
       </div>
       <Panel
         title="Recent flows"
-        description="The latest flows received, newest first (kept in memory by the backend, not stored)."
+        description="The latest flows received, newest first (kept in memory by the backend, not stored). Attack scores are uncalibrated; an alert needs a score at or above the threshold."
         className="mt-6"
         flush
       >
@@ -387,16 +387,26 @@ function FlowTable({ flows }: { flows: RecentFlowOut[] }) {
             `${f.sbytes == null ? '—' : formatBytes(f.sbytes)} / ${f.dbytes == null ? '—' : formatBytes(f.dbytes)}`,
         },
         {
-          key: 'scored',
-          header: 'Scored',
-          render: (f) => (
-            <StatusBadge
-              tone={f.scored ? 'info' : 'neutral'}
-              label={f.scored ? 'Scored' : 'Not scored'}
-            />
-          ),
+          key: 'score',
+          header: 'Attack score',
+          className: 'tabular-nums',
+          render: (f) => <FlowScore flow={f} />,
         },
       ]}
     />
+  )
+}
+
+/** The model's uncalibrated attack score for a flow, with the attack class it leaned to. */
+function FlowScore({ flow }: { flow: RecentFlowOut }) {
+  if (!flow.scored) return <StatusBadge tone="neutral" label="Not scored" />
+  if (flow.attack_score == null) return <StatusBadge tone="warning" label="Rejected by model" />
+  return (
+    <span title="Uncalibrated: 1 − the model's Normal score. Not a probability.">
+      {formatScore(flow.attack_score)}
+      {flow.top_attack_category && (
+        <span className="block text-xs text-slate-500">leans {flow.top_attack_category}</span>
+      )}
+    </span>
   )
 }

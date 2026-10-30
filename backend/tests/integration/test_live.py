@@ -166,6 +166,7 @@ def test_observation_mode_shows_flows_but_scores_nothing(
     assert db.scalars(select(Alert)).all() == []
     flows = analyst.get("/api/v1/live/flows").json()
     assert len(flows) == 10 and flows[0]["scored"] is False and flows[0]["src_ip"]
+    assert flows[0]["attack_score"] is None
     status = analyst.get("/api/v1/live/status").json()
     assert status["model_ready"] is False and status["compatible"] is True
     assert "not approved" in status["reason"] and "swin" in status["approximate_features"]
@@ -231,6 +232,13 @@ def test_approved_inference_creates_live_alerts_once(
     assert str(first.src_ip).startswith("192.0.2.") and first.dst_port == 80
     assert first.evidence["feature_source"] == "tshark"
     assert first.observed_at is not None
+    # Every scored flow shows its score on the Live page, alerted or not.
+    flows = admin.get("/api/v1/live/flows").json()
+    assert len(flows) == 60 and all(0 <= f["attack_score"] <= 1 for f in flows)
+    if live_model.alert_threshold is not None:
+        above = sum(f["attack_score"] >= live_model.alert_threshold for f in flows)
+        assert above == len(alerts)
+    assert all(f["top_attack_category"] != "Normal" for f in flows)
     # The collector resends the same flows (e.g. after a timeout): no duplicate alerts.
     ingest(sensor, batch)
     drain_live_queue(app)
