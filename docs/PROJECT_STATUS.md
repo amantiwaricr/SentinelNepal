@@ -22,7 +22,7 @@ authorisation must still be filed before the lab is demonstrated.
 | 3 | Backend APIs, DB, auth, incidents | Complete |
 | 4 | Frontend SOC dashboard | Complete |
 | 5 | Recommendations and hardening | Complete |
-| 6 | Live network monitoring | Complete (TShark/Docker lab; real-model lab run pending) |
+| 6 | Live network monitoring | Complete (TShark/Docker lab; real-model lab run recorded) |
 | 7 | nftables approved blocking | Not started |
 | 8 | Integration, testing, documentation | Not started |
 
@@ -151,6 +151,54 @@ Phase 6 decisions (team, 2026-10-29):
 | replay of a 300-row synthetic CSV | `rows_read=300, rows_rejected_locally=0, accepted_by_api=300`; 195 `replay` alerts |
 | replay of a 200-row synthetic CSV, browser open | Dashboard total went from 1,427 to 1,554 with 0 page navigations |
 
+### Lab run with the real model (team machine, Windows 11 + Docker Desktop, 2026-10-30)
+
+Run by the team and reported in the session; the numbers below are the team's observed
+values (screenshots and browser-console output). Times are local (UTC+05:45).
+
+**Model:**
+
+- `random_forest-full_no_ttl 20261030T061625Z` (model 2), trained on
+  `UNSW_NB15_training-set.csv` with `sentinel-ml train --profile full_no_ttl`.
+  - 175,341 rows read, 0 rejected, 67,602 duplicates removed.
+  - 86,191 train / 21,548 validation rows.
+  - Selected `random_forest_balanced`, validation macro-F1 0.5649. The other candidates
+    scored: random_forest 0.5053, logistic_regression_balanced 0.4474,
+    logistic_regression 0.4217.
+- Evaluated once on the testing file, and threshold chosen on validation (target FPR
+  0.05): **0.815**.
+- Registered and activated, then approved for live use by an admin.
+- The `full` model stays active for dataset analysis.
+
+**Pipeline:**
+
+- Gate: "Live scoring allowed … 15 are approximations not validated against UNSW-NB15
+  ground truth".
+- `lab-sensor` online, in inference mode. At 12:31 it had received 1,151 records, with 0
+  rejected, 0 dropped, 0 unreadable captures and 0 send failures; 3,306 packets read.
+
+**Exercises:**
+
+| Exercise | Observed |
+|---|---|
+| ordinary browsing (`normal.sh`) | **0 alerts.** Scores of 27 flows: 0.305–0.365 (median 0.320); top attack class Exploits for all 27; all `FIN`, 6/4 packets |
+| `scan.sh` (nmap TCP connect scan, ports 1–1024) | **0 alerts.** Of the scan flows still in the 200-flow list (173 of about 1,024): scores 0.395–0.595 (median 0.415); top attack class Fuzzers (172) and Backdoor (1); all `RST` |
+| `ssh-guess.sh`, `http-burst.sh` | **0 alerts.** Run before per-flow scores were shown on the Live page, so their scores were not observed |
+
+**Interpretation (observations only, small sample, one run):**
+
+- On these lab flows, the model's attack score separated the scan from ordinary browsing.
+  The lowest scan score (0.395) was above the highest browsing score (0.365).
+- No flow came near the 0.815 threshold chosen on UNSW-NB15 validation data, so no alerts
+  were raised.
+- The class it leaned to was wrong for a port scan: Fuzzers, not Reconnaissance. Fuzzers
+  is one of the categories the evaluation marks unreliable (low precision).
+- Consistent with the domain-shift limitation: lab flows built from TShark fields do not
+  look like the dataset's Argus/Bro flows to the model.
+- The threshold was **not** lowered after seeing these results. Choosing a threshold on the
+  same observations would be tuning on the test. A lab-specific threshold would need a
+  separately labelled lab capture set (possible Phase 8 work).
+
 ### Phase 6 acceptance
 
 - [x] The collector processes supported records: TShark flows and CSV replay (lab run;
@@ -167,8 +215,9 @@ Phase 6 decisions (team, 2026-10-29):
   "Validated" here means the mapping was checked and approved by a person. The 15
   approximated features have not been validated against ground truth (see limitations).
 - [x] CSV replay remains as a fallback (`sentinel-collector replay`).
-- [ ] A lab run with the real `full_no_ttl` model, recorded on the team machine. Supervisor
-  authorisation to be filed.
+- [x] A lab run with the real `full_no_ttl` model, recorded on the team machine
+  (2026-10-30, above): no detections claimed; 0 alerts, with scores recorded.
+- [ ] Supervisor authorisation to be filed.
 
 ### Defects found and fixed during Phase 6
 
@@ -185,6 +234,11 @@ Phase 6 decisions (team, 2026-10-29):
 - A WebSocket refresh could be lost when a reconnect changed the context value; the
   subscription is now stable.
 - A collector's clean shutdown waited 30 s before showing offline; it now shows at once.
+- With 0 alerts, the Live page could not show whether flows had been scored low or not
+  scored at all. Recent flows now show each flow's uncalibrated attack score and top
+  attack class (in memory only).
+- The Dashboard's "Live & replay" view named the dataset model (`full`) as the active
+  model; each view now names the model(s) that score its alerts.
 - With the 60 s lag above, TCP flows that had already closed also waited for it on a quiet
   network. Closed flows now end without the lag (test
   `test_closed_flows_end_promptly_on_a_quiet_network`).
@@ -690,13 +744,8 @@ Without `TEST_DATABASE_URL` the 6 integration tests are reported as skipped; CI 
 
 ## Next steps
 
-1. On the team machine (Windows, Docker Desktop), follow `docs/lab-runbook.md`:
-   - pull, then `docker compose up -d --build` (applies migration `0004`);
-   - train, threshold and register a `full_no_ttl` model;
-   - create the collector and put its token in `.env`;
-   - start the lab profile, approve the model and enable inference;
-   - run the four scripts and a replay, and record the real observations (counts,
-     categories, scores, screenshots) in this file.
+1. Optional, to complete the record: re-run `ssh-guess.sh` and `http-burst.sh` and note
+   their score ranges (Live page, or the browser-console summary used for the scan).
 2. File the supervisor's written authorisation for the lab.
 3. Phase 7: the nftables helper. It needs a disposable Linux VM (VirtualBox Ubuntu is fine)
    for the real firewall tests; unit tests use `FakeNftAdapter` and need no root.
